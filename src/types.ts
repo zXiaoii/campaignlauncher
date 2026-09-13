@@ -111,6 +111,12 @@ export interface Campaign {
   name: string
   campaignType: CampaignType
   status: 'ACTIVE' | 'ARCHIVED'
+  /**
+   * Still running in Meta, but the team no longer launches new ad sets into it.
+   * Next batch and the bulk trigger skip it; everything else (setup history,
+   * relaunching its ads elsewhere) still works.
+   */
+  onHold?: boolean
   createdAt: string
 }
 

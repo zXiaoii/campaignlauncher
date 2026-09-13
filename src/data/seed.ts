@@ -1,5 +1,6 @@
 // The team's real book. AUSTRALIA as given by Charles on 20 Sep 2026 from Ads
-// Manager; UK, CANADA and US are empty until their lists arrive.
+// Manager; UK has its campaigns (no ad sets yet); CANADA and US are empty until
+// their lists arrive.
 //
 // Campaigns are stored with their Meta names verbatim — the app only generates
 // names for CBOs it creates. Each running campaign carries one placeholder ad set
@@ -143,7 +144,14 @@ const AD_ACCOUNTS: AdAccount[] = [
   rhka('6324', 'US', 20, '11385'),
   rhka('9611', 'US', 21, '11386'),
 
+  /* ADSC — UK (from the UK Ads Reporting pivot, 14 Sep 2026) */
+  adsc('7965', 'UK', 16, ' - ADSC'),
+  adsc('7966', 'UK', 17, ' - ADSC'),
+
   /* RHKA — UK */
+  rhka('2808', 'UK', 1, '8357'),
+  rhka('6347', 'UK', 4, '8384'),
+  rhka('3396', 'UK', 7, '9141'),
   rhka('1372', 'UK', 21, '11241'),
   rhka('2139', 'UK', 22, '11344'),
   rhka('7759', 'UK', 23, '11343'),
@@ -188,6 +196,10 @@ const PRODUCTS: Product[] = [
   { id: 'p_omegamax', name: 'OMEGAMAX', active: true },
   { id: 'p_dermalift', name: 'DermaLift', active: true },
   { id: 'p_lungpure', name: 'LungPure', active: true },
+  { id: 'p_ozempil', name: 'Ozempil', active: true },
+  { id: 'p_bellavren', name: 'Bellavren', active: true },
+  /* Killed as a product; its UK CBO still runs on hold. Inactive so it is not offered for new CBOs. */
+  { id: 'p_flexivita', name: 'Flexivita', active: false },
 ]
 
 // ---------------------------------------------------------------------------
@@ -205,10 +217,10 @@ const adsets: Adset[] = []
 
 interface ExistingAdset {
   name: string
-  /** [year, month, day] — the date in the ad-set name. */
-  launched: [number, number, number]
+  /** [year, month, day] — the date in the ad-set name. Unset when the name has none. */
+  launched?: [number, number, number]
   /** Framework, when the name says so ("iterations" → iteration). Default Swipes + Playbook. */
-  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION'
+  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION' | 'CUSTOM'
 }
 
 function running(
@@ -218,6 +230,7 @@ function running(
   name: string,
   type: CampaignType,
   existing: ExistingAdset[],
+  opts: { onHold?: boolean } = {},
 ): void {
   campaigns.push({
     id,
@@ -226,6 +239,7 @@ function running(
     name,
     campaignType: type,
     status: 'ACTIVE',
+    onHold: opts.onHold || undefined,
     createdAt: at(2026, 9, 20),
   })
   if (existing.length === 0) {
@@ -240,15 +254,14 @@ function running(
     return
   }
   existing.forEach((a, i) => {
-    const [y, m, d] = a.launched
     const concept = a.concept ?? 'SWIPES_PLAYBOOK'
     adsets.push({
       id: `${id}_${i + 1}`,
       campaignId: id,
       name: a.name,
       conceptType: concept,
-      conceptLabel: concept === 'ITERATION' ? 'iteration' : 'swipes + playbook',
-      launchedAt: at(y, m, d, 12, 0),
+      conceptLabel: concept === 'ITERATION' ? 'iteration' : concept === 'CUSTOM' ? a.name : 'swipes + playbook',
+      launchedAt: a.launched ? at(a.launched[0], a.launched[1], a.launched[2], 12, 0) : undefined,
       status: 'ACTIVE',
     })
   })
@@ -288,6 +301,59 @@ running('cm_lungpure', 'ac_8519', 'p_lungpure', 'MAIN CBO LungPure', 'MAIN', [
 running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN', [
   { name: '09/10/26 SWIPES', launched: [2026, 9, 10] },
 ])
+
+// ---- UK ------------------------------------------------------------------
+// From the Ads Reporting pivot (campaign level only, so every CBO carries the
+// "existing ads" placeholder until its ad sets come in). Campaigns were matched to
+// accounts by the pivot's spend totals — the number at the end of a name is the
+// account's "AD n", the same convention as AUS.
+//
+// On hold (Charles: "we don't produce ad sets anymore" there): MAIN CBO
+// Flexivita on AD 1, MAIN CBO Lidlift on AD 7 (he said "ad acc 10" — no UK AD 10
+// exists; the spend totals put MAIN CBO Lidlift on AD 7, so that is what is held)
+// and CBO Bellavren 4 on AD 4. They keep running in Meta; Next batch skips them.
+//
+// Left out on purpose: MAIN CBO DryControl 17 (#7966) — product declared killed;
+// add it through "Add existing CBO" if it is still meant to run. 50643 reliore
+// had spend but no campaign row in the paste.
+//
+// Ad sets: the ad-set pivot was a fragment (15 of 54 rows). Only what could be
+// placed with certainty is seeded — "08/27/26 swipes" matches NEW CBO REVIDA | 17
+// to the cent, and the "test n - flexivita" ad sets sit under MAIN CBO Flexivita.
+// "test 11", "test 20" and "test 48 - Video UGC Ad" could not be placed.
+
+/* #2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA — on hold */
+running(
+  'cm_uk_flexivita_1',
+  'ac_2808',
+  'p_flexivita',
+  'MAIN CBO Flexivita',
+  'MAIN',
+  [
+    { name: 'test 36 - flexi', concept: 'CUSTOM' },
+    { name: 'test 47 - flexivita', concept: 'CUSTOM' },
+    { name: 'test 8 - flexivita', concept: 'CUSTOM' },
+    { name: 'test 40 flexivita', concept: 'CUSTOM' },
+    { name: 'test 6 flexivita', concept: 'CUSTOM' },
+    { name: 'test 9 flexivita', concept: 'CUSTOM' },
+    { name: 'test 10 flexivita', concept: 'CUSTOM' },
+    { name: 'test 42 - flexivita', concept: 'CUSTOM' },
+  ],
+  { onHold: true },
+)
+/* #7966 - UK | AD 17 - Danny - ADSC */
+running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', [
+  { name: '08/27/26 swipes', launched: [2026, 8, 27] },
+])
+running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW CBO Ozempil 17', 'NEW', [])
+/* #6347 - UK | AD 4 - Danny [ROAS A] 8384 - PP - RHKA */
+running('cm_uk_revida_4', 'ac_6347', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
+running('cm_uk_bellavren_4', 'ac_6347', 'p_bellavren', 'CBO Bellavren 4', 'MAIN', [], { onHold: true })
+/* #3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA */
+running('cm_uk_lidlift_7', 'ac_3396', 'p_lidlift', 'MAIN CBO Lidlift', 'MAIN', [], { onHold: true })
+running('cm_uk_lidlift_7_new', 'ac_3396', 'p_lidlift', 'NEW CBO Lidlift 7', 'NEW', [])
+/* #7965 - UK | AD 16 - Danny - ADSC */
+running('cm_uk_revida_16', 'ac_7965', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
 
 export function createSeedDb(): Db {
   return {

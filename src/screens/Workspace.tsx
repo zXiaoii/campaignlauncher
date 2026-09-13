@@ -59,7 +59,7 @@ type View = 'grid' | 'bento' | 'table'
  * Campaign state, as Charles thinks about it when deciding what to do next:
  * ready for a batch, waiting on one, out of room, or sitting on a broken account.
  */
-type StateFilter = 'ALL' | 'READY' | 'IN_FLIGHT' | 'LAUNCHED_TODAY' | 'FULL'
+type StateFilter = 'ALL' | 'READY' | 'IN_FLIGHT' | 'LAUNCHED_TODAY' | 'FULL' | 'ON_HOLD'
 const ALL = 'ALL'
 
 const COUNTRY_KEY = 'mb.lastCountry'
@@ -132,6 +132,7 @@ export function Workspace({
   // Same rules, same order, as the Next batch button — so "Ready (N)" here is
   // always the N the bulk button will launch into.
   const stateOf = (c: Campaign): Exclude<StateFilter, 'ALL'> => {
+    if (c.onHold) return 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
     // The only remaining block is a same-day name twin: this CBO already got its
@@ -297,6 +298,7 @@ export function Workspace({
             { value: 'IN_FLIGHT' as StateFilter, label: `In flight (${stateCounts.IN_FLIGHT ?? 0})` },
             { value: 'LAUNCHED_TODAY' as StateFilter, label: `Launched today (${stateCounts.LAUNCHED_TODAY ?? 0})` },
             { value: 'FULL' as StateFilter, label: `Full (${stateCounts.FULL ?? 0})` },
+            { value: 'ON_HOLD' as StateFilter, label: `On hold (${stateCounts.ON_HOLD ?? 0})` },
           ]}
           onChange={setStateFilter}
         />
@@ -503,8 +505,9 @@ function CampaignCard({
   onResult: (text: string) => void
 }) {
   const { db } = useStore()
-  const { nextBatch } = useActions()
+  const { nextBatch, setCampaignHold } = useActions()
   const live = liveAdsets(db, campaign.id)
+  const held = Boolean(campaign.onHold)
   const history = adsetsInCampaign(db, campaign.id).filter(
     (a) => !OCCUPYING_STATUSES.includes(a.status),
   )
@@ -530,13 +533,18 @@ function CampaignCard({
           {campaign.name}
         </span>
         <CampaignTypeChip type={campaign.campaignType} />
+        {held && (
+          <Chip tone="warn" title="Still running in Meta; the team no longer launches new ad sets into it.">
+            ⏸ On hold
+          </Chip>
+        )}
         <span
           className={cn(
             'ml-auto text-[11px] whitespace-nowrap',
             full ? 'text-fg font-medium' : 'text-fg-secondary',
           )}
         >
-          {used} / {MAX_ADSETS_PER_CAMPAIGN} adsets
+          {used > MAX_ADSETS_PER_CAMPAIGN ? `${used} adsets` : `${used} / ${MAX_ADSETS_PER_CAMPAIGN} adsets`}
         </span>
       </div>
 
@@ -583,7 +591,23 @@ function CampaignCard({
           </span>
         ) : (
           <>
-            {full ? (
+            {held ? (
+              <>
+                <span className="text-xs text-fg-secondary">No new ad sets here</span>
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    onLaunch({
+                      adAccountId: campaign.adAccountId,
+                      forceNewCampaign: true,
+                      sourceKind: 'EXISTING_ADSET',
+                    })
+                  }
+                >
+                  Launch from this
+                </Button>
+              </>
+            ) : full ? (
               <>
                 <Chip>Campaign full</Chip>
                 <Button
@@ -625,8 +649,8 @@ function CampaignCard({
                 },
                 {
                   label: 'Reuse an old batch here',
-                  disabled: full,
-                  disabledReason: 'This CBO is full.',
+                  disabled: full || held,
+                  disabledReason: held ? 'This CBO is on hold.' : 'This CBO is full.',
                   onClick: () =>
                     onLaunch({
                       adAccountId: campaign.adAccountId,
@@ -648,8 +672,20 @@ function CampaignCard({
                     }),
                 },
                 {
-                  label: showHistory ? 'Hide history' : `Show history (${history.length})`,
+                  label: held ? '▶ Resume new ad sets here' : '⏸ Stop new ad sets here',
                   separatorBefore: true,
+                  onClick: () => {
+                    if (setCampaignHold(campaign.id, !held)) {
+                      onResult(
+                        held
+                          ? `${campaign.name} resumed — Next batch can target it again.`
+                          : `${campaign.name} on hold — it keeps running in Meta, but Next batch and the bulk trigger skip it.`,
+                      )
+                    }
+                  },
+                },
+                {
+                  label: showHistory ? 'Hide history' : `Show history (${history.length})`,
                   disabled: history.length === 0,
                   disabledReason: 'Nothing in history for this CBO.',
                   onClick: () => setShowHistory((s) => !s),
@@ -799,11 +835,14 @@ function AdsetTable({
             <NameTd value={account.displayName} />
             <NameTd value={campaign.name} />
             <Td className="whitespace-nowrap">
-              <CampaignTypeChip type={campaign.campaignType} />
+              <span className="inline-flex gap-1.5">
+                <CampaignTypeChip type={campaign.campaignType} />
+                {campaign.onHold && <Chip tone="warn">⏸ On hold</Chip>}
+              </span>
             </Td>
             <NameTd value={adset.name} />
             <Td className="whitespace-nowrap text-fg-secondary">
-              {used}/{MAX_ADSETS_PER_CAMPAIGN}
+              {used > MAX_ADSETS_PER_CAMPAIGN ? `${used} (over)` : `${used}/${MAX_ADSETS_PER_CAMPAIGN}`}
             </Td>
             <NameTd value={source ? `↩ ${source.name}` : '—'} muted />
             <Td className="whitespace-nowrap">

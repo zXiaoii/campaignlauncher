@@ -174,6 +174,17 @@ Blockers are orthogonal to status (a Ready task can be blocked), show as a ⛔ c
 every setup view, count in Mark's and the Ad Accounts overview, have their own tab in
 the setup queue, and clear automatically on completion.
 
+## On hold — "we don't produce ad sets there anymore"
+
+A CBO can keep running in Meta while the team stops launching into it. The card menu
+has **⏸ Stop new ad sets here** (and **▶ Resume**); a held CBO shows an *On hold* chip,
+its Next batch button is replaced by *Launch from this* (into a new CBO), the bulk
+trigger skips it, and the state filter has an *On hold (n)* bucket. Nothing else changes:
+its ad sets stay visible, can be relaunched elsewhere, and setup history is untouched.
+Seeded on hold for UK: MAIN CBO Flexivita (AD 1), MAIN CBO Lidlift (AD 7) and CBO
+Bellavren 4 (AD 4). Imported CBOs may carry more than four ad sets (they already exist in
+Meta); they read as full until ad sets are archived.
+
 ## Add existing CBO — importing without a reset
 
 The seed is for day one. Once the app is live, **↓ Add existing CBO** (Workspace header,

@@ -41,7 +41,6 @@ import {
   campaignsInAccount,
   hasAdsetNamed,
   isCampaignFull,
-  OCCUPYING_STATUSES,
   plannedAdsets,
   slotsUsed,
 } from './selectors'
@@ -270,6 +269,8 @@ type Action =
   | ({ type: 'CAMPAIGN_IMPORT'; actorId: string } & CampaignImportInput)
   /** Several CBOs from one Meta export, all or nothing. */
   | { type: 'CAMPAIGN_IMPORT_MANY'; items: CampaignImportInput[]; actorId: string }
+  /** "We don't produce ad sets here anymore" — Next batch skips the CBO until resumed. */
+  | { type: 'CAMPAIGN_SET_HOLD'; campaignId: string; onHold: boolean; actorId: string }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -428,6 +429,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
   const blockedReason =
     acc && acc.status === 'OFFBOARDED'
       ? `${acc.displayName} is off-boarded.`
+      : cm.onHold
+        ? `${cm.name} is on hold — no new ad sets go into it. Resume it from the card menu first.`
       : isCampaignFull(db, campaignId)
         ? `${cm.name} is full.`
         : inFlight.length > 0
@@ -760,12 +763,8 @@ function reducer(state: Db, action: Action): Db {
         if (names.has(a.name)) throw new LaunchRuleError(`${campaignName} already has an ad set named "${a.name}".`)
         names.add(a.name)
       }
-      const liveAfter = current.filter((a) => OCCUPYING_STATUSES.includes(a.status)).length + incoming.length
-      if (liveAfter > MAX_ADSETS_PER_CAMPAIGN) {
-        throw new LaunchRuleError(
-          `${campaignName} would have ${liveAfter} ad sets — a CBO holds a maximum of ${MAX_ADSETS_PER_CAMPAIGN}.`,
-        )
-      }
+      // No four-slot check here: these ad sets already exist in Meta. A legacy CBO
+      // with more than four simply shows as full, so nothing new can go into it.
 
       const toAdd: Db['adsets'] =
         incoming.length > 0
@@ -796,6 +795,20 @@ function reducer(state: Db, action: Action): Db {
         campaignName,
         adsets: toAdd.map((a) => a.name),
         created: !action.campaignId,
+      })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'CAMPAIGN_SET_HOLD': {
+      assertCanWrite(role, 'createLaunch')
+      const cm = campaign(state, action.campaignId)
+      if (!cm) throw new LaunchRuleError('Campaign not found.')
+      db.campaigns = state.campaigns.map((c) =>
+        c.id === cm.id ? { ...c, onHold: action.onHold || undefined } : c,
+      )
+      log(db, action.actorId, 'campaign', cm.id, action.onHold ? 'CAMPAIGN_HELD' : 'CAMPAIGN_RESUMED', {
+        campaignName: cm.name,
       })
       return db
     }
@@ -1450,6 +1463,8 @@ export function useActions() {
         run({ type: 'CAMPAIGN_IMPORT', ...input, actorId: currentUser.id }),
       importCampaigns: (items: CampaignImportInput[]) =>
         run({ type: 'CAMPAIGN_IMPORT_MANY', items, actorId: currentUser.id }),
+      setCampaignHold: (campaignId: string, onHold: boolean) =>
+        run({ type: 'CAMPAIGN_SET_HOLD', campaignId, onHold, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

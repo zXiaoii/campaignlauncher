@@ -110,9 +110,7 @@ function planExport(
     const productName = override ?? guess?.name ?? ''
 
     let problem: string | undefined
-    if (liveAfter > MAX_ADSETS_PER_CAMPAIGN) {
-      problem = `${liveAfter} ad sets — a CBO holds ${MAX_ADSETS_PER_CAMPAIGN}. Turn off the dead ones in Meta or add this CBO by hand.`
-    } else if (!existing && adding.length === 0 && adsets.length > 0) {
+    if (!existing && adding.length === 0 && adsets.length > 0) {
       problem = 'Every ad set is off in Meta — this CBO looks killed, so it is left out.'
     } else if (!existing && !productName.trim()) {
       problem = 'Type the product.'
@@ -227,9 +225,8 @@ export function ImportDrawer({
   if (mode === 'EXISTING' && !existing) problems.push('Pick the CBO to add ad sets to.')
   if (mode === 'EXISTING' && good.length === 0) problems.push('Paste at least one ad-set name.')
   if (parsed.some((a) => a.problem)) problems.push('Fix the flagged ad-set lines first.')
-  if (liveAfter > MAX_ADSETS_PER_CAMPAIGN) {
-    problems.push(`That is ${liveAfter} ad sets — a CBO holds a maximum of ${MAX_ADSETS_PER_CAMPAIGN}.`)
-  }
+  // More than four is allowed on import — they already exist in Meta. The CBO
+  // simply shows as full, so no new batch can be launched into it.
   const canSave = problems.length === 0
 
   function submit() {
@@ -509,8 +506,15 @@ export function ImportDrawer({
                             ) : (
                               <Chip tone="success">new CBO · {g.adding.length}</Chip>
                             )}
-                            <Chip tone={g.liveAfter > MAX_ADSETS_PER_CAMPAIGN ? 'danger' : 'quiet'}>
-                              {g.liveAfter}/{MAX_ADSETS_PER_CAMPAIGN}
+                            <Chip
+                              tone={g.liveAfter > MAX_ADSETS_PER_CAMPAIGN ? 'warn' : 'quiet'}
+                              title={
+                                g.liveAfter > MAX_ADSETS_PER_CAMPAIGN
+                                  ? 'More than four already in Meta — it will show as full, so no new batch goes into it.'
+                                  : undefined
+                              }
+                            >
+                              {g.liveAfter > MAX_ADSETS_PER_CAMPAIGN ? `${g.liveAfter} · over the limit` : `${g.liveAfter}/${MAX_ADSETS_PER_CAMPAIGN}`}
                             </Chip>
                           </div>
                           {!g.existingId && (
