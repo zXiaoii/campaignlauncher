@@ -25,6 +25,7 @@ const KIND_TONE: Record<SetupEventKind, ChipTone> = {
   QA: 'info',
   SUBMITTED: 'success',
   REQUEST: 'warn',
+  INSTRUCTIONS: 'accent',
 }
 
 const KIND_LABEL: Record<SetupEventKind, string> = {
@@ -35,6 +36,7 @@ const KIND_LABEL: Record<SetupEventKind, string> = {
   QA: 'QA',
   SUBMITTED: 'Ready for setup',
   REQUEST: 'Request',
+  INSTRUCTIONS: 'Instructions',
 }
 
 function readSeen(userId: string): string {

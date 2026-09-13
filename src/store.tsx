@@ -120,6 +120,8 @@ export interface CreateLaunchInput {
   brief: Brief
   /** Required when `creativeHandling` is OWN_BATCH: the Drive folder Charles made. */
   ownDriveUrl?: string
+  /** Free-text instructions for the setup team, stored on the setup task. */
+  setupInstructions?: string
   setupDueAt: string
   creativeDueAt: string
 }
@@ -238,6 +240,8 @@ type Action =
   | { type: 'CREATIVE_SET_REQUEST'; taskId: string; note?: string; actorId: string }
   /** Setup raises (reason) or clears (no reason) a blocker. */
   | { type: 'SETUP_SET_BLOCKER'; taskId: string; reason?: string; actorId: string }
+  /** Charles rewrites (or clears) the instructions on a setup task that is not live yet. */
+  | { type: 'SETUP_SET_INSTRUCTIONS'; taskId: string; instructions?: string; actorId: string }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -255,6 +259,16 @@ type Action =
       reason?: string
       actorId: string
     }
+  | {
+      type: 'USER_CREATE'
+      name: string
+      username: string
+      role: Role
+      /** Local backend: hash of the chosen password. Firebase: undefined. */
+      passwordHash?: string
+      actorId: string
+    }
+  | { type: 'USER_SET_ACTIVE'; userId: string; active: boolean; actorId: string }
   | {
       type: 'SETUP_SET_CHECK'
       taskId: string
@@ -529,8 +543,11 @@ function reducer(state: Db, action: Action): Db {
           createdAt: now().toISOString(),
         })
       } else if (input.creativeHandling === 'REUSE_EXACT') {
-        if (!sourceBatchId) {
-          throw new LaunchRuleError('Exact reuse needs a source creative batch.')
+        // Reusing an ad set that was imported from Meta has no batch to point at:
+        // the ads only exist inside Meta, so setup duplicates them there, guided
+        // by the instructions. The launch still records the source for lineage.
+        if (!sourceBatchId && !adset(state, input.sourceAdsetId)) {
+          throw new LaunchRuleError('Exact reuse needs a source ad set or creative batch.')
         }
         batchId = sourceBatchId
       } else {
@@ -624,6 +641,7 @@ function reducer(state: Db, action: Action): Db {
           },
         ]
       }
+      const instructions = input.setupInstructions?.trim() || undefined
       db.setupTasks = [
         ...state.setupTasks,
         {
@@ -632,6 +650,8 @@ function reducer(state: Db, action: Action): Db {
           status: creativeNeeded ? 'WAITING_FOR_CREATIVE' : 'READY',
           creativeRequired: creativeNeeded,
           dueAt: input.setupDueAt,
+          instructions,
+          instructionsAt: instructions ? now().toISOString() : undefined,
         },
       ]
 
@@ -640,6 +660,28 @@ function reducer(state: Db, action: Action): Db {
         campaignName: campaign(db, campaignId)?.name,
         adsetName,
         sourceAdsetId: input.sourceAdsetId,
+        instructions,
+      })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'SETUP_SET_INSTRUCTIONS': {
+      assertCanWrite(role, 'createLaunch')
+      const task = state.setupTasks.find((t) => t.id === action.taskId)
+      if (!task) throw new LaunchRuleError('Setup task not found.')
+      if (task.status === 'COMPLETED') {
+        throw new LaunchRuleError('This launch is already live — the instructions are locked.')
+      }
+      const instructions = action.instructions?.trim() || undefined
+      const stamp = now().toISOString()
+      db.setupTasks = state.setupTasks.map((t) =>
+        t.id === task.id
+          ? { ...t, instructions, instructionsAt: instructions ? stamp : undefined }
+          : t,
+      )
+      log(db, action.actorId, 'setup_task', task.id, 'SETUP_INSTRUCTIONS_SET', {
+        instructions,
       })
       return db
     }
@@ -843,6 +885,54 @@ function reducer(state: Db, action: Action): Db {
         status: action.status,
         reason,
       })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'USER_CREATE': {
+      assertCanWrite(role, 'team')
+      const username = action.username.trim().toLowerCase()
+      const name = action.name.trim()
+      if (!name) throw new LaunchRuleError('The person needs a name.')
+      if (!/^[a-z0-9._-]{2,32}$/.test(username)) {
+        throw new LaunchRuleError('Username: 2–32 characters, letters, numbers, dots, dashes or underscores.')
+      }
+      if (state.users.some((u) => u.username === username)) {
+        throw new LaunchRuleError(`The username "${username}" is already taken.`)
+      }
+      db.users = [
+        ...state.users,
+        {
+          id: `u_${username}`,
+          username,
+          name,
+          role: action.role,
+          active: true,
+          sortOrder: Math.max(0, ...state.users.map((u) => u.sortOrder)) + 1,
+          passwordHash: action.passwordHash,
+        },
+      ]
+      log(db, action.actorId, 'user', `u_${username}`, 'USER_CREATED', { role: action.role })
+      return db
+    }
+
+    case 'USER_SET_ACTIVE': {
+      assertCanWrite(role, 'team')
+      const target = state.users.find((u) => u.id === action.userId)
+      if (!target) throw new LaunchRuleError('User not found.')
+      if (target.id === action.actorId && !action.active) {
+        throw new LaunchRuleError('You cannot deactivate yourself.')
+      }
+      // Never leave the team without a media buyer — nobody could get back in to fix it.
+      if (
+        !action.active &&
+        target.role === 'MEDIA_BUYER' &&
+        !state.users.some((u) => u.role === 'MEDIA_BUYER' && u.active && u.id !== target.id)
+      ) {
+        throw new LaunchRuleError('This is the only active media buyer. Add another before deactivating.')
+      }
+      db.users = state.users.map((u) => (u.id === target.id ? { ...u, active: action.active } : u))
+      log(db, action.actorId, 'user', target.id, action.active ? 'USER_REACTIVATED' : 'USER_DEACTIVATED')
       return db
     }
 
@@ -1219,8 +1309,14 @@ export function useActions() {
         run({ type: 'CREATIVE_SET_REQUEST', taskId, note, actorId: currentUser.id }),
       setBlocker: (taskId: string, reason?: string) =>
         run({ type: 'SETUP_SET_BLOCKER', taskId, reason, actorId: currentUser.id }),
+      setInstructions: (taskId: string, instructions?: string) =>
+        run({ type: 'SETUP_SET_INSTRUCTIONS', taskId, instructions, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
+      createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>
+        run({ type: 'USER_CREATE', ...input, actorId: currentUser.id }),
+      setUserActive: (userId: string, active: boolean) =>
+        run({ type: 'USER_SET_ACTIVE', userId, active, actorId: currentUser.id }),
       createAccount: (input: {
         countryId: string
         displayName: string

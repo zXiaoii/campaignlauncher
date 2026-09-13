@@ -16,6 +16,7 @@ import { Library } from './screens/Library'
 import { NotificationBell, SetupToasts } from './screens/Notifications'
 import { SetupOverview } from './screens/SetupOverview'
 import { SetupTasks } from './screens/SetupTasks'
+import { Team } from './screens/Team'
 import { Workspace } from './screens/Workspace'
 
 export default function App() {
@@ -164,6 +165,7 @@ function Shell() {
         {active === 'followups' && openLaunch && (
           <Followups onLaunch={openLaunch} onOpenLibrary={() => setActive('library')} />
         )}
+        {active === 'team' && <Team />}
         {active === 'setupOverview' && <SetupOverview mode="overview" />}
         {active === 'setupHistory' && <SetupOverview mode="history" />}
       </main>

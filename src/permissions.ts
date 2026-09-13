@@ -23,6 +23,7 @@ export type Area =
   | 'accounts'
   | 'accountHealth'
   | 'creativeRequest'
+  | 'team'
 
 export type Access = 'full' | 'read' | 'summary' | 'own' | 'setupOnly' | 'none'
 
@@ -143,6 +144,14 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     SETUP: 'none',
     SETUP_QA: 'none',
   },
+  /** Who is on the team and in which seat. Charles builds it; Danny can look. */
+  team: {
+    MEDIA_BUYER: 'full',
+    CEO: 'read',
+    CREATIVE: 'none',
+    SETUP: 'none',
+    SETUP_QA: 'none',
+  },
 }
 
 export function access(role: Role, area: Area): Access {
@@ -186,6 +195,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'accounts', label: 'Ad Accounts' },
     { key: 'library', label: 'Library' },
     { key: 'followups', label: '48H Follow-ups' },
+    { key: 'team', label: 'Team' },
   ],
   CEO: [
     { key: 'overview', label: 'Overview' },
@@ -194,6 +204,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'creative', label: 'Creative Tasks' },
     { key: 'setup', label: 'Setup Tasks' },
     { key: 'accounts', label: 'Ad Accounts' },
+    { key: 'team', label: 'Team' },
   ],
   CREATIVE: [{ key: 'creative', label: 'Creative Tasks' }],
   SETUP: [{ key: 'setup', label: 'Setup Tasks' }],

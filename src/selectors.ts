@@ -383,6 +383,8 @@ export type SetupEventKind =
   | 'QA'
   | 'SUBMITTED'
   | 'REQUEST'
+  /** Charles wrote or changed the instructions on a setup task. */
+  | 'INSTRUCTIONS'
 
 export interface SetupEvent {
   id: string
@@ -415,7 +417,7 @@ const CREATIVE_EVENT_TYPES = new Set([
  * everyone else sees both halves of the handover.
  */
 export function eventKindsFor(role: User['role']): Set<SetupEventKind> {
-  const setup: SetupEventKind[] = ['COMPLETED', 'BLOCKED', 'UNBLOCKED', 'ACCOUNT', 'QA']
+  const setup: SetupEventKind[] = ['COMPLETED', 'BLOCKED', 'UNBLOCKED', 'ACCOUNT', 'QA', 'INSTRUCTIONS']
   const creative: SetupEventKind[] = ['SUBMITTED', 'REQUEST']
   return new Set(role === 'SETUP_QA' ? setup : [...setup, ...creative])
 }
@@ -460,6 +462,28 @@ export function setupEvents(db: Db, limit = 50): SetupEvent[] {
           adsetId: row.adset.id,
         })
       }
+      if (out.length >= limit) break
+      continue
+    }
+
+    // Charles changing the instructions on a task that already exists — the setup
+    // team needs to know the brief moved under them. (Instructions written at
+    // creation ride on the task itself; the task appearing is the notification.)
+    if (l.eventType === 'SETUP_INSTRUCTIONS_SET' && actor.role === 'MEDIA_BUYER') {
+      const row = rowForSetupTask(db, l.entityId)
+      if (!row) continue
+      const text = typeof l.metadata?.instructions === 'string' ? l.metadata.instructions : ''
+      out.push({
+        id: l.id,
+        at: l.createdAt,
+        actorId: actor.id,
+        actorName: actor.name,
+        kind: 'INSTRUCTIONS',
+        text: text
+          ? `${actor.name} updated the instructions for ${row.adset.name} · ${row.campaign.name} — ${text}`
+          : `${actor.name} removed the instructions for ${row.adset.name} · ${row.campaign.name}`,
+        adsetId: row.adset.id,
+      })
       if (out.length >= limit) break
       continue
     }

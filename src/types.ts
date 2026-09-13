@@ -40,12 +40,20 @@ export type ConceptType =
   | 'CUSTOM'
 
 export interface User {
+  /** Always `u_` + username — the auth layer derives it from the sign-in. */
   id: string
+  username: string
   name: string
   role: Role
+  /** Inactive people cannot sign in; their name stays on everything they did. */
   active: boolean
   /** Display order. IndexedDB returns rows in key order, so this has to be explicit. */
   sortOrder: number
+  /**
+   * Local backend only: salted SHA-256 of the password for people added through the
+   * Team screen. On Firebase the account lives in Firebase Auth and this is unset.
+   */
+  passwordHash?: string
 }
 
 export interface Country {
@@ -115,6 +123,11 @@ export interface Adset {
   conceptLabel: string
   /** Source lineage: set when this launch reused/relaunched/iterated an older ad set. */
   sourceAdsetId?: string
+  /**
+   * Unset for ad sets imported from Meta (no Drive folder in the app) and for
+   * launches that relaunch such an ad set — setup duplicates the ads inside Meta,
+   * guided by the setup task's `instructions`.
+   */
   creativeBatchId?: string
   launchedAt?: string
   status: AdsetStatus
@@ -183,6 +196,15 @@ export interface SetupTask {
   completedBy?: string
   completedAt?: string
   dueAt: string
+
+  /**
+   * Charles's typed instructions for this launch — "just use the 09/18/26 swipes
+   * and relaunch it here", "duplicate the top 3 ads only", anything. Free text,
+   * shown at the top of the setup task and in the copy block. Editable by Charles
+   * until setup completes.
+   */
+  instructions?: string
+  instructionsAt?: string
 
   /**
    * Blocker raised by the setup team — a BM restriction, a disabled account,

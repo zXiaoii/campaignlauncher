@@ -17,7 +17,7 @@ import type { Db } from '../types'
 
 const DB_NAME = 'launchdesk'
 /** Bump when the shape of stored rows changes; an upgrade forces a reseed. */
-const DB_VERSION = 11
+const DB_VERSION = 12
 const META_STORE = 'meta'
 
 /** Db field → IndexedDB store name (the PRD's table names). */

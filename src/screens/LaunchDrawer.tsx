@@ -96,7 +96,7 @@ const SOURCE_OPTIONS: OptionItem<SourceKind>[] = [
   {
     value: 'EXISTING_ADSET',
     title: 'Existing Ad Set',
-    desc: 'Reuse the creative source from a current ad set.',
+    desc: 'Relaunch or iterate the ads of a running ad set — imported ones included.',
   },
   {
     value: 'OLD_ADSET',
@@ -172,7 +172,10 @@ export function LaunchDrawer({
   const effectiveSourceBatchId =
     sourceKind === 'EXISTING_BATCH' ? sourceBatchId : sourceAdset?.creativeBatchId
   const sourceBatch = byId(db.creativeBatches, effectiveSourceBatchId || undefined)
-  const hasSource = sourceKind !== 'NEW_BATCH' && Boolean(effectiveSourceBatchId)
+  // An ad set imported from Meta has no batch in the app: it still counts as a
+  // source — setup duplicates its ads inside Meta, following the instructions.
+  const importedSource = Boolean(sourceAdset) && !sourceAdset?.creativeBatchId
+  const hasSource = sourceKind !== 'NEW_BATCH' && (Boolean(effectiveSourceBatchId) || Boolean(sourceAdset))
 
   // ---- creative handling --------------------------------------------------
   const [handling, setHandling] = useState<LaunchMode>(
@@ -183,7 +186,17 @@ export function LaunchDrawer({
   const creativeNeeded = requiresCreative(effectiveHandling)
   const ownDrive = sourceKind === 'OWN_DRIVE'
   const [ownDriveUrl, setOwnDriveUrl] = useState('')
-  const [ownNote, setOwnNote] = useState('')
+
+  // ---- instructions for setup --------------------------------------------
+  // Free text, always available. When relaunching an existing ad set there is an
+  // obvious sentence to start from; one click drops it in, then Charles edits.
+  const [instructions, setInstructions] = useState('')
+  const suggestedInstructions =
+    sourceAdset && sourceCampaign && effectiveHandling === 'REUSE_EXACT'
+      ? `Just use the ${sourceAdset.name} ads from ${sourceCampaign.name} and relaunch them here. Same settings.`
+      : ownDrive
+        ? 'Use every creative in the Drive folder. Same budget and targeting as the last ad set.'
+        : ''
 
   // ---- destination --------------------------------------------------------
   const presetCampaign = findCampaign(db, intent.destinationCampaignId)
@@ -277,19 +290,20 @@ export function LaunchDrawer({
     brief: {
       hooks: hooks.map((h) => h.trim()).filter(Boolean),
       angle,
-      direction: ownDrive ? ownNote : direction,
+      direction: ownDrive ? '' : direction,
       references: references.filter((r) => r.url.trim()),
       quantity,
       priority,
     },
     ownDriveUrl: ownDrive ? ownDriveUrl : undefined,
+    setupInstructions: instructions,
     setupDueAt: combine(setupDue, setupTime),
     creativeDueAt: combine(creativeDue, creativeTime),
   }
 
   const preview = previewNames(db, input)
 
-  const sourceMissing = sourceKind !== 'NEW_BATCH' && !ownDrive && !effectiveSourceBatchId
+  const sourceMissing = sourceKind !== 'NEW_BATCH' && !ownDrive && !hasSource
   const problems: string[] = []
   if (sourceMissing) problems.push('Select the source to launch from.')
   if (ownDrive && !ownDriveUrl.trim()) problems.push('Paste the Drive link for your batch.')
@@ -297,14 +311,17 @@ export function LaunchDrawer({
   if (preview.blocked) problems.push(preview.blocked)
   const canCreate = problems.length === 0
 
-  const liveAdsetChoices = db.adsets
-    .filter((a) => !LIBRARY_STATUSES.includes(a.status) && a.creativeBatchId)
-    .map((a) => ({ adset: a, campaign: findCampaign(db, a.campaignId)! }))
-    .filter((x) => Boolean(x.campaign))
-  const oldAdsetChoices = db.adsets
-    .filter((a) => LIBRARY_STATUSES.includes(a.status) && a.creativeBatchId)
-    .map((a) => ({ adset: a, campaign: findCampaign(db, a.campaignId)! }))
-    .filter((x) => Boolean(x.campaign))
+  // Every ad set that exists is a valid source — including the ones imported from
+  // Meta with no batch here. Only planned (not yet live) ad sets are left out:
+  // there is nothing in Meta to duplicate yet.
+  const adsetChoices = (old: boolean) =>
+    db.adsets
+      .filter((a) => a.status !== 'PLANNED' && LIBRARY_STATUSES.includes(a.status) === old)
+      .map((a) => ({ adset: a, campaign: findCampaign(db, a.campaignId)! }))
+      .filter((x) => Boolean(x.campaign))
+      .sort((a, b) => a.campaign.name.localeCompare(b.campaign.name) || (a.adset.name < b.adset.name ? 1 : -1))
+  const liveAdsetChoices = adsetChoices(false)
+  const oldAdsetChoices = adsetChoices(true)
 
   function submit() {
     if (!canCreate) return
@@ -413,6 +430,7 @@ export function LaunchDrawer({
                     <option key={adset.id} value={adset.id}>
                       {campaign.name} → {adset.name}
                       {sourceKind === 'OLD_ADSET' ? ` (${adset.status.toLowerCase()})` : ''}
+                      {adset.creativeBatchId ? '' : ' · in Meta only'}
                     </option>
                   ),
                 )}
@@ -434,6 +452,22 @@ export function LaunchDrawer({
               .filter(Boolean)
               .join('\n')}
           </Block>
+        )}
+
+        {importedSource && sourceAdset && sourceCampaign && (
+          <>
+            <Block>
+              {[
+                `SOURCE AD SET  ${sourceCampaign.name} → ${sourceAdset.name}`,
+                `DRIVE          none in the app — the ads live in Meta`,
+              ].join('\n')}
+            </Block>
+            <Callout className="mt-3 mb-0">
+              <strong>Imported ad set.</strong> There is no Drive folder for it here, so setup
+              duplicates the ads inside Meta. Tell them exactly which ones in the instructions
+              below.
+            </Callout>
+          </>
         )}
       </Section>
 
@@ -608,21 +642,13 @@ export function LaunchDrawer({
               Your creatives, your link. <strong>No creative task</strong> — setup starts at{' '}
               <em>Ready</em> with this Drive folder on the copy block.
             </Callout>
-            <Field label="Google Drive link">
+            <Field label="Google Drive link" hint="What to do with it goes in the instructions below.">
               <input
                 className={inputClass}
                 value={ownDriveUrl}
                 autoFocus
                 placeholder="https://drive.google.com/drive/folders/…"
                 onChange={(e) => setOwnDriveUrl(e.target.value)}
-              />
-            </Field>
-            <Field label="Note for setup (optional)">
-              <textarea
-                className={textareaClass}
-                value={ownNote}
-                placeholder="e.g. 6 videos, use the 1:1 versions for Reels"
-                onChange={(e) => setOwnNote(e.target.value)}
               />
             </Field>
           </>
@@ -680,6 +706,35 @@ export function LaunchDrawer({
             <strong>Yzah receives nothing</strong>, and setup is ready immediately. The source
             date stays source history — the destination gets today&apos;s date.
           </Callout>
+        )}
+      </Section>
+
+      {/* ------------------------------------------------- instructions */}
+      <Section
+        n={creativeNeeded ? 5 : 4}
+        title="Instructions for setup"
+        trailing={instructions.trim() ? <Chip tone="accent">📝 on the task</Chip> : <Chip tone="quiet">optional</Chip>}
+      >
+        <Field
+          label="What should Karl and Christian do, in your words?"
+          hint="Shown at the top of their task and in the copy block. You can edit it until the launch is live."
+        >
+          <textarea
+            className={cn(textareaClass, 'min-h-24')}
+            value={instructions}
+            placeholder={
+              suggestedInstructions ||
+              'e.g. Just use the 09/18/26 swipes and relaunch it here. Same budget, same targeting, exclude the last 3 ads.'
+            }
+            onChange={(e) => setInstructions(e.target.value)}
+          />
+        </Field>
+        {suggestedInstructions && instructions.trim() !== suggestedInstructions && (
+          <div className="flex flex-wrap items-center gap-1.5 -mt-1.5">
+            <Button size="sm" onClick={() => setInstructions(suggestedInstructions)}>
+              Use: “{suggestedInstructions}”
+            </Button>
+          </div>
         )}
       </Section>
 
@@ -818,8 +873,8 @@ export function LaunchDrawer({
         </Section>
       )}
 
-      {/* ---------------------------------------------------------- step 5 */}
-      <Section n={creativeNeeded ? 5 : 4} title="Deadlines">
+      {/* ---------------------------------------------------------- deadlines */}
+      <Section n={creativeNeeded ? 6 : 5} title="Deadlines">
         <div className="grid grid-cols-2 gap-x-3 max-[900px]:grid-cols-1">
         {creativeNeeded && (
           <Field label="Creative deadline" hint="Yzah's queue.">
@@ -914,7 +969,12 @@ export function LaunchDrawer({
           ) : (
             <>
               Creates <strong>1 setup task</strong> only, starting at <em>Ready for Setup</em>
-              {ownDrive ? ' with your Drive link' : ''}. No creative task.
+              {ownDrive
+                ? ' with your Drive link'
+                : importedSource
+                  ? ' — setup duplicates the ads inside Meta'
+                  : ''}
+              . No creative task.
             </>
           )}
         </div>

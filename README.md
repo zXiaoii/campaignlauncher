@@ -40,6 +40,10 @@ not raw speed — nothing here is large enough for database speed to matter.
 The app runs on the real clock (`src/clock.ts` is the one place to substitute a fixed
 date for tests).
 
+`npm run dev:local` starts a second server on http://localhost:5175 that ignores the
+Firebase config (`.env.nofb` blanks it) and runs on the in-browser database — handy for
+trying things against the seed without touching the team's live data.
+
 ## The seeded book
 
 `src/data/seed.ts` holds the team's real accounts and campaigns: 17 ADSC, 18 RHKA and
@@ -117,6 +121,17 @@ always the latest. Once the launch is live the record locks. She can also send a
 **request to Charles** on any task ("source Drive only has 3 files"); it shows as a
 ⚠ Request chip on the task and a callout in the drawer until Charles marks it handled.
 
+## Team
+
+Charles builds the team from the **Team** screen: name, role (setup, creative, setup
+QA, media buyer, executive), username, password. On Firebase the Auth account is
+created on the spot through a throwaway secondary app instance, so the admin stays
+signed in; locally the password is hashed onto the user record. People are
+deactivated, never deleted — they can't sign in, but their name stays on everything
+they did. Guards: you can't deactivate yourself, and the last active media buyer can't
+be deactivated. A user's id is always `u_` + username, which is how a Firebase sign-in
+maps back to a user without a lookup table.
+
 ## Account health — problem accounts
 
 Every ad account has a health state: **Healthy**, or one of the problem states
@@ -159,13 +174,32 @@ Blockers are orthogonal to status (a Ready task can be blocked), show as a ⛔ c
 every setup view, count in Mark's and the Ad Accounts overview, have their own tab in
 the setup queue, and clear automatically on completion.
 
+## Instructions for setup — typed, in Charles's words
+
+The app never holds the ads themselves; they live in Meta and in Drive. So every launch
+has a free-text **Instructions for setup** box: *"just use the 09/18/26 swipes and
+relaunch it here"*, *"duplicate the top 3 ads only, same budget"*. It is stored on the
+setup task and shown at the top of the task drawer (a blue "Instructions from Charles"
+panel), as a column in the setup queue, and as an `Instructions:` line in the copy
+block. Charles can edit it in place — in the task drawer or the ad-set drawer — until
+setup completes; each edit notifies the setup team through the bell and a toast.
+
+**Relaunching an imported ad set.** The ad sets seeded from Meta have no Drive folder
+here, so they used to be unselectable as a source. Now any live or old ad set is a valid
+source, including imported ones (labelled *in Meta only* in the picker). Choosing one
+with *Reuse exactly* creates no batch and no creative task: the setup task starts
+**Ready**, its Creative row reads *Duplicate the ads from "09/11/26 SWIPES 2" in MAIN CBO
+Revida 4*, and the instructions say which ones. The imported ad-set drawer has a
+one-click **Relaunch these ads here** button that opens the launch drawer with all of
+this preselected and a suggested sentence Charles can drop in and edit.
+
 ## Own Drive batch
 
 The launch drawer's fifth source, **My own Drive batch**: Charles pastes the link to
-creatives he made himself (plus an optional note for setup). No creative task is
-created; the batch is stored complete with its Drive link and the setup task starts
-**Ready** with that link on the copy block. Setup's table shows *From Charles* in the
-Creative column.
+creatives he made himself; what to do with them goes in the instructions box. No
+creative task is created; the batch is stored complete with its Drive link and the
+setup task starts **Ready** with that link on the copy block. Setup's table shows *From
+Charles* in the Creative column.
 
 ## Cancelling a planned ad set
 

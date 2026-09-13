@@ -30,6 +30,7 @@ import {
 import { formatTime, MAX_ADSETS_PER_CAMPAIGN } from '../naming'
 import { isCampaignFull, rowForAdset, slotsUsed, userName } from '../selectors'
 import { useActions, useStore } from '../store'
+import { InstructionsPanel } from './Instructions'
 import type { LaunchIntent } from './LaunchDrawer'
 
 const Dot = () => <span className="px-1.5 text-line-strong">·</span>
@@ -81,6 +82,21 @@ function ImportedAdsetDrawer({
           <>
             <Button
               variant="primary"
+              title="Setup duplicates these ads inside Meta into a new ad set, following your instructions."
+              onClick={() =>
+                onLaunch({
+                  sourceKind: 'EXISTING_ADSET',
+                  sourceAdsetId: adset.id,
+                  adAccountId: account.id,
+                  destinationCampaignId: full ? undefined : campaign.id,
+                  forceNewCampaign: full,
+                  creativeHandling: 'REUSE_EXACT',
+                })
+              }
+            >
+              {full ? 'Relaunch these ads in a new CBO' : 'Relaunch these ads here'}
+            </Button>
+            <Button
               onClick={() =>
                 onLaunch({
                   adAccountId: account.id,
@@ -89,7 +105,7 @@ function ImportedAdsetDrawer({
                 })
               }
             >
-              {full ? 'Launch from this into a new CBO' : 'Launch into this CBO'}
+              New batch {full ? 'in a new CBO' : 'into this CBO'}
             </Button>
           </>
         ) : undefined
@@ -97,8 +113,9 @@ function ImportedAdsetDrawer({
     >
       <Callout>
         <strong>Imported from Meta.</strong> This ad set was running before Campaign
-        Launcher — there is no brief, source or task history for it here. Send the real
-        ad-set name and it will replace this placeholder.
+        Launcher — there is no brief or Drive folder for it here. To relaunch its ads,
+        setup duplicates them inside Meta; you tell them exactly which ones in the
+        instructions.
       </Callout>
       <Section title="Names">
         <CopyRow label="Ad account" value={account.displayName} />
@@ -321,6 +338,7 @@ export function AdsetDrawer({
       )}
 
       <Section title="Tasks">
+        {setupTask && <InstructionsPanel taskId={setupTask.id} className="mb-2" />}
         <div className={cn('flex items-center gap-2 px-[11px] py-2.5 mb-2 border border-line rounded-lg bg-surface')}>
           <div className="min-w-0 text-[13px]">
             <span className={cn(labelClass, 'mb-[3px] text-[10.5px] text-fg-tertiary')}>
@@ -331,8 +349,12 @@ export function AdsetDrawer({
                 {creativeTask.quantity} creatives
                 {creativeTask.submittedAt && ` · submitted ${formatTime(creativeTask.submittedAt)}`}
               </>
-            ) : (
+            ) : batch ? (
               'No creative task — the source batch is reused exactly.'
+            ) : sourceAdset ? (
+              `No creative task — setup duplicates the ads of ${sourceAdset.name} inside Meta.`
+            ) : (
+              'No creative task.'
             )}
           </div>
           {creativeTask && (

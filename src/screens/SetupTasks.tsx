@@ -45,6 +45,15 @@ import {
 import { dueLabel, formatLaunchDate, formatTime, isLate } from '../naming'
 import { rowForSetupTask, setupRows, userName } from '../selectors'
 import { useActions, useStore } from '../store'
+import { InstructionsPanel } from './Instructions'
+
+/** One line for the table: what the setup person gets as creative, in two words. */
+function creativeSummary(r: ReturnType<typeof setupRows>[number]): string {
+  const t = r.setupTask!
+  if (t.creativeRequired) return r.batch?.driveUrl ? 'Ready' : 'Waiting'
+  if (r.launch.launchMode === 'OWN_BATCH') return 'From Charles'
+  return r.batch ? 'Reused' : 'Duplicate in Meta'
+}
 
 type Tab = 'OPEN' | 'BLOCKED' | 'DONE' | 'ALL'
 
@@ -121,6 +130,7 @@ export function SetupTasks() {
               <Th>Campaign</Th>
               <Th>Ad Set</Th>
               <Th>Creative</Th>
+              <Th>Instructions</Th>
               <Th>Status</Th>
             </tr>
           </thead>
@@ -149,14 +159,12 @@ export function SetupTasks() {
                   <NameTd value={r.account.displayName} />
                   <NameTd value={r.campaign.name} />
                   <NameTd value={r.adset.name} />
-                  <Td className="whitespace-nowrap text-fg-secondary">
-                    {t.creativeRequired
-                      ? r.batch?.driveUrl
-                        ? 'Ready'
-                        : 'Waiting'
-                      : r.launch.launchMode === 'OWN_BATCH'
-                        ? 'From Charles'
-                        : 'Reused'}
+                  <Td className="whitespace-nowrap text-fg-secondary">{creativeSummary(r)}</Td>
+                  <Td
+                    className={cn('max-w-[260px] truncate', t.instructions ? 'text-fg' : 'text-fg-tertiary')}
+                    title={t.instructions}
+                  >
+                    {t.instructions ? `📝 ${t.instructions}` : '—'}
                   </Td>
                   <Td className="whitespace-nowrap">
                     <span className="inline-flex gap-1.5">
@@ -203,14 +211,24 @@ export function SetupTaskDrawer({
   const waiting = task.status === 'WAITING_FOR_CREATIVE'
   const completed = task.status === 'COMPLETED'
   const driveUrl = row.batch?.driveUrl
+  // Relaunching an ad set imported from Meta: nothing in Drive, the ads are in Meta.
+  const duplicateInMeta = !task.creativeRequired && !row.batch && row.sourceAdset
+  const creativeLine = driveUrl
+    ? driveUrl
+    : duplicateInMeta
+      ? `Duplicate the ads from "${row.sourceAdset!.name}"${row.sourceCampaign ? ` in ${row.sourceCampaign.name}` : ''}`
+      : 'Pending — not submitted yet'
 
   // §10.4 — one plain-text block to paste into Meta notes or a chat.
   const setupBlock = [
     `Ad Account: ${row.account.displayName}`,
     `Campaign: ${row.campaign.name}`,
     `Ad Set: ${row.adset.name}`,
-    `Creative: ${driveUrl ?? 'pending'}`,
-  ].join('\n')
+    `Creative: ${driveUrl ?? (duplicateInMeta ? creativeLine : 'pending')}`,
+    task.instructions ? `Instructions: ${task.instructions}` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   const dot = <span className="px-1.5 text-line-strong">·</span>
 
@@ -299,6 +317,8 @@ export function SetupTaskDrawer({
 
       <BlockerSection taskId={task.id} canEdit={canAct} />
 
+      <InstructionsPanel taskId={task.id} />
+
       {waiting && (
         <Callout>
           <strong>Waiting for creative.</strong> Yzah has not submitted the Drive link yet. This
@@ -310,7 +330,7 @@ export function SetupTaskDrawer({
         <CopyRow label="Ad account" value={row.account.displayName} />
         <CopyRow label="Campaign" value={row.campaign.name} />
         <CopyRow label="Ad set" value={row.adset.name} />
-        <CopyRow label="Creative Drive" value={driveUrl ?? 'Pending — not submitted yet'} href={driveUrl} />
+        <CopyRow label={duplicateInMeta ? 'Creative' : 'Creative Drive'} value={creativeLine} href={driveUrl} />
       </Section>
 
       <Section title="What this launch is">
@@ -322,7 +342,9 @@ export function SetupTaskDrawer({
                 ? 'new work required'
                 : row.launch.launchMode === 'OWN_BATCH'
                   ? 'supplied by Charles — no creative task'
-                  : 'reused exactly — no creative task'
+                  : duplicateInMeta
+                    ? 'duplicate the existing ads inside Meta — no creative task'
+                    : 'reused exactly — no creative task'
             }`,
             row.launch.launchMode === 'OWN_BATCH' && row.batch?.direction
               ? `NOTE       ${row.batch.direction}`

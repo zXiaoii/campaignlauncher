@@ -24,13 +24,15 @@ import type {
   User,
 } from '../types'
 
+// Rule: a user's id is always `u_` + username. The auth layer relies on it to map a
+// sign-in back to a user without a lookup table, so new people follow it too.
 export const USERS: User[] = [
-  { id: 'u_charles', name: 'Charles', role: 'MEDIA_BUYER', active: true, sortOrder: 1 },
-  { id: 'u_danny', name: 'Danny', role: 'CEO', active: true, sortOrder: 2 },
-  { id: 'u_yzah', name: 'Yzah', role: 'CREATIVE', active: true, sortOrder: 3 },
-  { id: 'u_karl', name: 'Karl', role: 'SETUP', active: true, sortOrder: 4 },
-  { id: 'u_christian', name: 'Christian', role: 'SETUP', active: true, sortOrder: 5 },
-  { id: 'u_mark', name: 'Mark', role: 'SETUP_QA', active: true, sortOrder: 6 },
+  { id: 'u_charles', username: 'charles', name: 'Charles', role: 'MEDIA_BUYER', active: true, sortOrder: 1 },
+  { id: 'u_danny', username: 'danny', name: 'Danny', role: 'CEO', active: true, sortOrder: 2 },
+  { id: 'u_yzah', username: 'yzah', name: 'Yzah', role: 'CREATIVE', active: true, sortOrder: 3 },
+  { id: 'u_karl', username: 'karl', name: 'Karl', role: 'SETUP', active: true, sortOrder: 4 },
+  { id: 'u_christian', username: 'christian', name: 'Christian', role: 'SETUP', active: true, sortOrder: 5 },
+  { id: 'u_mark', username: 'mark', name: 'Mark', role: 'SETUP_QA', active: true, sortOrder: 6 },
 ]
 
 const COUNTRIES: Country[] = [
@@ -184,6 +186,8 @@ const PRODUCTS: Product[] = [
   { id: 'p_vitalith', name: 'Vitalith', active: true },
   { id: 'p_healvix', name: 'Healvix', active: true },
   { id: 'p_omegamax', name: 'OMEGAMAX', active: true },
+  { id: 'p_dermalift', name: 'DermaLift', active: true },
+  { id: 'p_lungpure', name: 'LungPure', active: true },
 ]
 
 // ---------------------------------------------------------------------------
@@ -203,6 +207,8 @@ interface ExistingAdset {
   name: string
   /** [year, month, day] — the date in the ad-set name. */
   launched: [number, number, number]
+  /** Framework, when the name says so ("iterations" → iteration). Default Swipes + Playbook. */
+  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION'
 }
 
 function running(
@@ -235,12 +241,13 @@ function running(
   }
   existing.forEach((a, i) => {
     const [y, m, d] = a.launched
+    const concept = a.concept ?? 'SWIPES_PLAYBOOK'
     adsets.push({
       id: `${id}_${i + 1}`,
       campaignId: id,
       name: a.name,
-      conceptType: 'SWIPES_PLAYBOOK',
-      conceptLabel: 'swipes + playbook',
+      conceptType: concept,
+      conceptLabel: concept === 'ITERATION' ? 'iteration' : 'swipes + playbook',
       launchedAt: at(y, m, d, 12, 0),
       status: 'ACTIVE',
     })
@@ -261,10 +268,24 @@ running('cm_vitalith_3', 'ac_8167', 'p_vitalith', 'MAIN CBO Vitalith 3', 'MAIN',
   { name: '09/07/26', launched: [2026, 9, 7] },
   { name: '09/11/26 swipes 2', launched: [2026, 9, 11] },
 ])
-/* Ad sets not sent yet — placeholders until they are. */
-running('cm_healvix', 'ac_8179', 'p_healvix', 'MAIN CBO Healvix', 'MAIN', [])
+/* #8179 - AUS | AD 5 */
+running('cm_healvix', 'ac_8179', 'p_healvix', 'MAIN CBO Healvix', 'MAIN', [
+  { name: '09/13/26 swipes', launched: [2026, 9, 13] },
+])
+/* #8977 - AUS | AD 13 */
+running('cm_lidlift_13', 'ac_8977', 'p_lidlift', 'NEW CBO Lidlift 13', 'NEW', [
+  { name: '09/12/26 iterations', launched: [2026, 9, 12], concept: 'ITERATION' },
+])
+/* #8395 - AUS | AD 9 — campaign name verbatim, "CBO MAIN" word order and all */
+running('cm_dermalift', 'ac_8395', 'p_dermalift', 'CBO MAIN DermaLift', 'MAIN', [
+  { name: '09/14/26 swipes', launched: [2026, 9, 14] },
+])
+/* #8519 - AUS | AD 12 */
+running('cm_lungpure', 'ac_8519', 'p_lungpure', 'MAIN CBO LungPure', 'MAIN', [
+  { name: '09/14/26 swipes', launched: [2026, 9, 14] },
+])
+/* Ad sets not sent yet — placeholder until they are. */
 running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN', [])
-running('cm_lidlift_13', 'ac_8977', 'p_lidlift', 'NEW CBO Lidlift 13', 'NEW', [])
 
 export function createSeedDb(): Db {
   return {
