@@ -37,6 +37,8 @@ export type ConceptType =
   | 'SWIPES_PLAYBOOK'
   | 'ITERATION'
   | 'DEEP_ITERATION'
+  /** Same winning concept, different executions — new hooks, formats or visuals on it. */
+  | 'VARIATION'
   | 'CUSTOM'
 
 export interface User {

@@ -67,6 +67,7 @@ export const CONCEPT_TYPE_LABEL: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
   ITERATION: 'Iteration',
   DEEP_ITERATION: 'Deep Iteration',
+  VARIATION: 'Variation',
   CUSTOM: 'Custom',
 }
 

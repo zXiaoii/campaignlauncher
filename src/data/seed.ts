@@ -14,7 +14,7 @@
 
 import { at } from '../clock'
 import { PLACEHOLDER_ADSET_NAME } from '../importing'
-import { extractAdAccountNumber } from '../naming'
+import { CONCEPT_LABELS, extractAdAccountNumber } from '../naming'
 import type {
   AdAccount,
   Adset,
@@ -253,7 +253,7 @@ interface ExistingAdset {
   /** [year, month, day] — the date in the ad-set name. Unset when the name has none. */
   launched?: [number, number, number]
   /** Framework, when the name says so ("iterations" → iteration). Default Swipes + Playbook. */
-  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION' | 'CUSTOM'
+  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION' | 'VARIATION' | 'CUSTOM'
 }
 
 function running(
@@ -293,7 +293,7 @@ function running(
       campaignId: id,
       name: a.name,
       conceptType: concept,
-      conceptLabel: concept === 'ITERATION' ? 'iteration' : concept === 'CUSTOM' ? a.name : 'swipes + playbook',
+      conceptLabel: concept === 'CUSTOM' ? a.name : CONCEPT_LABELS[concept],
       launchedAt: a.launched ? at(a.launched[0], a.launched[1], a.launched[2], 12, 0) : undefined,
       status: 'ACTIVE',
     })

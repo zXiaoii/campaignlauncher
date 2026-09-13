@@ -20,6 +20,7 @@ export const CONCEPT_LABELS: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'swipes + playbook',
   ITERATION: 'iteration',
   DEEP_ITERATION: 'deep iteration',
+  VARIATION: 'variation',
   CUSTOM: '',
 }
 
@@ -31,6 +32,8 @@ export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
     'Iterate the winning hooks from the source. Same talent and structure, tighter first three seconds, clear variations rather than cosmetic changes.',
   DEEP_ITERATION:
     'Use the referenced source concept as the base. Create deeper variations of hook, visual presentation, angle and framing while preserving the central idea.',
+  VARIATION:
+    'Keep the winning concept exactly as it is. Produce variations of it only: new hooks on the same body, different formats (9:16 / 1:1 / 4:5), different opening visuals, different CTA lines. The idea, talent and structure stay untouched.',
   CUSTOM: '',
 }
 
@@ -38,6 +41,7 @@ export const CONCEPT_NAMES: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
   ITERATION: 'Iteration',
   DEEP_ITERATION: 'Deep Iteration',
+  VARIATION: 'Variation',
   CUSTOM: 'Custom',
 }
 

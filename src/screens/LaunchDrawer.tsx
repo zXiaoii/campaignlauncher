@@ -683,10 +683,11 @@ export function LaunchDrawer({
                   const next = e.target.value as ConceptType
                   setConceptType(next)
                   setLabelOverride('')
-                  if (next === 'SWIPES_PLAYBOOK') setDirection(SWIPES_DEFAULT)
+                  // Each framework has its own default brief; Custom keeps whatever is typed.
+                  if (DEFAULT_DIRECTION[next]) setDirection(DEFAULT_DIRECTION[next])
                 }}
               >
-                {(['SWIPES_PLAYBOOK', 'ITERATION', 'DEEP_ITERATION', 'CUSTOM'] as ConceptType[]).map((t) => (
+                {(['SWIPES_PLAYBOOK', 'ITERATION', 'VARIATION', 'DEEP_ITERATION', 'CUSTOM'] as ConceptType[]).map((t) => (
                   <option key={t} value={t}>
                     {CONCEPT_TYPE_LABEL[t]}
                     {t === 'SWIPES_PLAYBOOK' ? ' (default)' : ''}
