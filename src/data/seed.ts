@@ -1,6 +1,6 @@
 // The team's real book. AUSTRALIA as given by Charles on 20 Sep 2026 from Ads
-// Manager; UK has its campaigns (no ad sets yet); CANADA and US are empty until
-// their lists arrive.
+// Manager; UK is complete from the Ads Manager export; CANADA and US are empty
+// until their lists arrive.
 //
 // Campaigns are stored with their Meta names verbatim — the app only generates
 // names for CBOs it creates. Each running campaign carries one placeholder ad set
@@ -336,70 +336,35 @@ running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN',
 ])
 
 // ---- UK ------------------------------------------------------------------
-// From the Ads Reporting pivot (campaign level only, so every CBO carries the
-// placeholder until its ad sets come in). Campaigns were matched to
-// accounts by the pivot's spend totals — the number at the end of a name is the
-// account's "AD n", the same convention as AUS.
+// From Charles's Ads Manager export (Untitled-report.xlsx, ad-set level, "had
+// delivery" on 13 Sep 2026): 29 ad sets in 15 CBOs on 9 accounts, every row
+// carrying its account, so nothing here is inferred. Names are verbatim from
+// Meta — including "NEW  CBO Ozempil 17" (two spaces), "09/11/2026 WIinner" and
+// "test  2 iterations" — because they are copied back into Meta as-is.
 //
 // On hold (Charles: "we don't produce ad sets anymore" there): MAIN CBO
 // Flexivita on AD 1, MAIN CBO Lidlift on AD 10 (#2849) and CBO Bellavren 4 on
-// AD 4. They keep running in Meta; Next batch skips them. There is a second,
-// separate "MAIN CBO Lidlift" on AD 7 (#3396) — different spend, not held.
+// AD 4. They keep running in Meta; Next batch skips them. The "MAIN CBO Lidlift"
+// on AD 7 (#3396) is a separate campaign and is not held.
 //
-// Ad sets: the ad-set pivots came as fragments (three pastes of a 54-row report).
-// Only what the spend totals place to the cent is seeded:
-//   NEW CBO REVIDA | 17      ← 08/27/26 swipes (57.04)
-//   NEW CBO Ozempil 17       ← 08/31/26 concepts (61.91)
-//   MAIN CBO DryControl 17   ← 08/30/26 swipes (69.73)
-//   MAIN CBO Flexivita       ← eight "test n flexivita" + test 11 + test 20 +
-//                              test 48 - Video UGC Ad (sum 163.07, 8 results)
-//   MAIN CBO Lidlift (AD 10) ← test 8 / test 6 / test 10 LidLift™ (83.13+1.53+0.01 = 84.67)
-//   MAIN CBO Affinera 10     ← 09/10/26 swipes (0.08)
-//   NEW CBO Ozempil (50643)  ← 09/11/26 - Old Winner (105.36)
-//   NEW CBO Bellavren (AD 2) ← 09/11/26 (0.49) — account inferred, see below
-// Not placed: "08/26/26 batch Concept" (8.14) and "08/21/26 batch concepts"
-// (15.51). #9790 AD 2 totals 81.84 and only NEW CBO Bellavren's 0.49 could be
-// attributed to it; the rest of that account is unknown.
+// Framework per ad set: "swipes" → Swipes + Playbook, "iteration(s)" →
+// Iteration, a bare date → Swipes + Playbook (the team default), anything else
+// ("test n …", "batch concepts", "- Copy", "Old Winner") → Custom, label = name.
 
-/* #2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA — on hold */
-running(
-  'cm_uk_flexivita_1',
-  'ac_2808',
-  'p_flexivita',
-  'MAIN CBO Flexivita',
-  'MAIN',
-  [
-    { name: 'test 36 - flexi', concept: 'CUSTOM' },
-    { name: 'test 47 - flexivita', concept: 'CUSTOM' },
-    { name: 'test 8 - flexivita', concept: 'CUSTOM' },
-    { name: 'test 40 flexivita', concept: 'CUSTOM' },
-    { name: 'test 6 flexivita', concept: 'CUSTOM' },
-    { name: 'test 9 flexivita', concept: 'CUSTOM' },
-    { name: 'test 10 flexivita', concept: 'CUSTOM' },
-    { name: 'test 42 - flexivita', concept: 'CUSTOM' },
-    { name: 'test 11', concept: 'CUSTOM' },
-    { name: 'test 20', concept: 'CUSTOM' },
-    { name: 'test 48 - Video UGC Ad', concept: 'CUSTOM' },
-  ],
-  { onHold: true },
-)
-/* #7966 - UK | AD 17 - Danny - ADSC */
-running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', [
-  { name: '08/27/26 swipes', launched: [2026, 8, 27] },
+/* 50643 reliore [GO DGTL] */
+running('cm_uk_ozempil_reliore', 'ac_50643', 'p_ozempil', 'NEW CBO Ozempil', 'NEW', [
+  { name: '09/11/26 - Old Winner', launched: [2026, 9, 11], concept: 'CUSTOM' },
 ])
-running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW CBO Ozempil 17', 'NEW', [
-  { name: '08/31/26 concepts', launched: [2026, 8, 31], concept: 'CUSTOM' },
+running('cm_uk_bellavren_reliore', 'ac_50643', 'p_bellavren', 'NEW CBO Bellavren', 'NEW', [
+  { name: '09/11/26', launched: [2026, 9, 11] },
 ])
-running('cm_uk_drycontrol_17', 'ac_7966', 'p_drycontrol', 'MAIN CBO DryControl 17', 'MAIN', [
-  { name: '08/30/26 swipes', launched: [2026, 8, 30] },
+/* #7965 - UK | AD 16 - Danny - ADSC */
+running('cm_uk_revida_16', 'ac_7965', 'p_revida', 'MAIN CBO Revida', 'MAIN', [
+  { name: '08/24/26 batch swipes', launched: [2026, 8, 24] },
+  { name: '08/21/26 batch concepts', launched: [2026, 8, 21], concept: 'CUSTOM' },
+  { name: '08/26/26 batch Concept', launched: [2026, 8, 26], concept: 'CUSTOM' },
 ])
-/* #6347 - UK | AD 4 - Danny [ROAS A] 8384 - PP - RHKA */
-running('cm_uk_revida_4', 'ac_6347', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
-running('cm_uk_bellavren_4', 'ac_6347', 'p_bellavren', 'CBO Bellavren 4', 'MAIN', [], { onHold: true })
-/* #3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA */
-running('cm_uk_lidlift_7', 'ac_3396', 'p_lidlift', 'MAIN CBO Lidlift', 'MAIN', [])
-running('cm_uk_lidlift_7_new', 'ac_3396', 'p_lidlift', 'NEW CBO Lidlift 7', 'NEW', [])
-/* #2849 - UK | AD 10 - Danny [ROAS A] 9274 - PP - RHKA — on hold */
+/* #2849 - UK | AD 10 - Danny [ROAS A] 9274 - PP - RHKA */
 running(
   'cm_uk_lidlift_10',
   'ac_2849',
@@ -417,15 +382,68 @@ running('cm_uk_affinera_10', 'ac_2849', 'p_affinera', 'MAIN CBO Affinera 10', 'M
   { name: '09/10/26 swipes', launched: [2026, 9, 10] },
 ])
 /* #9790 - UK | AD 2 - Danny [ROAS A] 8386 - PP - RHKA */
-running('cm_uk_bellavren_2', 'ac_9790', 'p_bellavren', 'NEW CBO Bellavren', 'NEW', [
-  { name: '09/11/26', launched: [2026, 9, 11] },
+running('cm_uk_revida_2', 'ac_9790', 'p_revida', 'NEW CBO Revida 2', 'NEW', [
+  { name: '9/9/26 iteration', launched: [2026, 9, 9], concept: 'ITERATION' },
 ])
-/* 50643 reliore [GO DGTL] */
-running('cm_uk_ozempil_reliore', 'ac_50643', 'p_ozempil', 'NEW CBO Ozempil', 'NEW', [
-  { name: '09/11/26 - Old Winner', launched: [2026, 9, 11], concept: 'CUSTOM' },
+/* #3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA */
+running('cm_uk_lidlift_7', 'ac_3396', 'p_lidlift', 'MAIN CBO Lidlift', 'MAIN', [
+  { name: '09/08/26', launched: [2026, 9, 8] },
 ])
-/* #7965 - UK | AD 16 - Danny - ADSC */
-running('cm_uk_revida_16', 'ac_7965', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
+running('cm_uk_lidlift_7_new', 'ac_3396', 'p_lidlift', 'NEW CBO Lidlift 7', 'NEW', [
+  { name: '08/09/26 - Copy', launched: [2026, 8, 9], concept: 'CUSTOM' },
+])
+/* #6347 - UK | AD 4 - Danny [ROAS A] 8384 - PP - RHKA */
+running(
+  'cm_uk_bellavren_4',
+  'ac_6347',
+  'p_bellavren',
+  'CBO Bellavren 4',
+  'MAIN',
+  [
+    { name: 'test 1 bellavren', concept: 'CUSTOM' },
+    { name: 'test  2 iterations', concept: 'CUSTOM' },
+  ],
+  { onHold: true },
+)
+running('cm_uk_revida_4', 'ac_6347', 'p_revida', 'MAIN CBO Revida', 'MAIN', [
+  { name: '09/08/26', launched: [2026, 9, 8] },
+])
+/* #2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA */
+running(
+  'cm_uk_flexivita_1',
+  'ac_2808',
+  'p_flexivita',
+  'MAIN CBO Flexivita',
+  'MAIN',
+  [
+    { name: 'test 20', concept: 'CUSTOM' },
+    { name: 'test 36 - flexi', concept: 'CUSTOM' },
+    { name: 'test 11', concept: 'CUSTOM' },
+    { name: 'test 8 - flexivita', concept: 'CUSTOM' },
+    { name: 'test 10 flexivita', concept: 'CUSTOM' },
+    { name: 'test 9 flexivita', concept: 'CUSTOM' },
+    { name: 'test 47 - flexivita', concept: 'CUSTOM' },
+    { name: 'test 40 flexivita', concept: 'CUSTOM' },
+    { name: 'test 6 flexivita', concept: 'CUSTOM' },
+    { name: 'test 48 - Video UGC Ad', concept: 'CUSTOM' },
+    { name: 'test 42 - flexivita', concept: 'CUSTOM' },
+  ],
+  { onHold: true },
+)
+/* #1372 - UK | AD 21 - Danny [ROAS A] 11241 - PP - RHKA */
+running('cm_uk_revida_21', 'ac_1372', 'p_revida', 'MAIN CBO REVIDA 21', 'MAIN', [
+  { name: '09/11/2026 WIinner', launched: [2026, 9, 11], concept: 'CUSTOM' },
+])
+/* #7966 - UK | AD 17 - Danny - ADSC */
+running('cm_uk_drycontrol_17', 'ac_7966', 'p_drycontrol', 'MAIN CBO DryControl 17', 'MAIN', [
+  { name: '08/30/26 swipes', launched: [2026, 8, 30] },
+])
+running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW  CBO Ozempil 17', 'NEW', [
+  { name: '08/31/26 concepts', launched: [2026, 8, 31], concept: 'CUSTOM' },
+])
+running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', [
+  { name: '08/27/26 swipes', launched: [2026, 8, 27] },
+])
 
 export function createSeedDb(): Db {
   return {

@@ -48,9 +48,9 @@ trying things against the seed without touching the team's live data.
 
 `src/data/seed.ts` holds the team's real accounts and campaigns: 17 ADSC, 18 RHKA and
 17 GO DGTL accounts across UK, CANADA, AUSTRALIA and US (each with the supplier's own
-label and the account's timezone). Campaigns and ad sets are complete for AUSTRALIA as
-of 14 Sep 2026 (eight CBOs, every ad set with its real name and launch date); the other
-markets' campaigns arrive next. Campaigns keep their Meta names verbatim
+label and the account's timezone). Campaigns and ad sets are complete for AUSTRALIA
+(eight CBOs) and UK (15 CBOs, 29 ad sets, from Charles's Ads Manager export) as of
+14 Sep 2026; CANADA and US arrive through **Add existing CBO** once the app is live. Campaigns keep their Meta names verbatim
 (`MAIN CBO Revida 4`) with a **MAIN** type; the app only generates §4.1 names for CBOs
 it creates. A campaign whose ad sets have not been supplied yet carries one placeholder
 ad set, `ad sets not imported yet`, with no launch date or history — it makes the CBO read as live
