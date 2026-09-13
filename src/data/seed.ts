@@ -49,7 +49,7 @@ function account(
   displayName: string,
   store: string | undefined,
   supplier: string | undefined,
-  extra: Partial<Pick<AdAccount, 'supplierRef' | 'timezone'>> = {},
+  extra: Partial<Pick<AdAccount, 'supplierRef' | 'timezone' | 'status' | 'statusReason' | 'statusChangedAt'>> = {},
 ): AdAccount {
   return {
     id,
@@ -58,8 +58,8 @@ function account(
     adAccountNumber: extractAdAccountNumber(displayName),
     store,
     supplier,
-    ...extra,
     status: 'ACTIVE',
+    ...extra,
   }
 }
 
@@ -94,6 +94,29 @@ const adsc = (num: string, market: Market, ad: number, tail: string) =>
     'ADSC',
     { supplierRef: `ADSC | ${MARKET_LABEL[market]} | AD ${ad}`, timezone: TZ[market] },
   )
+
+/**
+ * An account Charles named only as "UK | AD n" — supplier and "#nnnn" number not
+ * sent. The display name carries no number, so the directory flags it and campaign
+ * naming into it is blocked until the number is corrected there. Used for the
+ * off-boarded ones, where the number will never matter.
+ */
+const unnumbered = (
+  market: Market,
+  ad: number,
+  extra: Partial<Pick<AdAccount, 'status' | 'statusReason' | 'statusChangedAt'>> = {},
+) =>
+  account(`ac_${market.toLowerCase()}_ad${ad}`, `c_${market.toLowerCase()}`, `${MARKET_LABEL[market]} | AD ${ad} - Danny`, undefined, undefined, {
+    supplierRef: `${MARKET_LABEL[market]} | AD ${ad}`,
+    timezone: TZ[market],
+    ...extra,
+  })
+
+const OFFBOARDED_14_SEP = {
+  status: 'OFFBOARDED' as const,
+  statusReason: 'Off-boarded (Charles, 14 Sep 2026)',
+  statusChangedAt: at(2026, 9, 14),
+}
 
 /** An RHKA account — "#2999 - AUS | AD 21 - Danny [ROAS A] 11391 - PP - RHKA". */
 const rhka = (num: string, market: Market, ad: number, roas: string) =>
@@ -147,11 +170,18 @@ const AD_ACCOUNTS: AdAccount[] = [
   /* ADSC — UK (from the UK Ads Reporting pivot, 14 Sep 2026) */
   adsc('7965', 'UK', 16, ' - ADSC'),
   adsc('7966', 'UK', 17, ' - ADSC'),
+  /* Off-boarded — named by Charles as "UK | AD n" only, supplier and number not sent. */
+  unnumbered('UK', 13, OFFBOARDED_14_SEP),
+  unnumbered('UK', 14, OFFBOARDED_14_SEP),
+  unnumbered('UK', 15, OFFBOARDED_14_SEP),
+  unnumbered('UK', 18, OFFBOARDED_14_SEP),
 
   /* RHKA — UK */
   rhka('2808', 'UK', 1, '8357'),
+  rhka('9790', 'UK', 2, '8386'),
   rhka('6347', 'UK', 4, '8384'),
   rhka('3396', 'UK', 7, '9141'),
+  rhka('2849', 'UK', 10, '9274'),
   rhka('1372', 'UK', 21, '11241'),
   rhka('2139', 'UK', 22, '11344'),
   rhka('7759', 'UK', 23, '11343'),
@@ -200,6 +230,8 @@ const PRODUCTS: Product[] = [
   { id: 'p_bellavren', name: 'Bellavren', active: true },
   /* Killed as a product; its UK CBO still runs on hold. Inactive so it is not offered for new CBOs. */
   { id: 'p_flexivita', name: 'Flexivita', active: false },
+  { id: 'p_drycontrol', name: 'DryControl', active: true },
+  { id: 'p_affinera', name: 'Affinera', active: true },
 ]
 
 // ---------------------------------------------------------------------------
@@ -309,18 +341,21 @@ running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN',
 // account's "AD n", the same convention as AUS.
 //
 // On hold (Charles: "we don't produce ad sets anymore" there): MAIN CBO
-// Flexivita on AD 1, MAIN CBO Lidlift on AD 7 (he said "ad acc 10" — no UK AD 10
-// exists; the spend totals put MAIN CBO Lidlift on AD 7, so that is what is held)
-// and CBO Bellavren 4 on AD 4. They keep running in Meta; Next batch skips them.
+// Flexivita on AD 1, MAIN CBO Lidlift on AD 10 (#2849) and CBO Bellavren 4 on
+// AD 4. They keep running in Meta; Next batch skips them. There is a second,
+// separate "MAIN CBO Lidlift" on AD 7 (#3396) — different spend, not held.
 //
-// Left out on purpose: MAIN CBO DryControl 17 (#7966) — product declared killed;
-// add it through "Add existing CBO" if it is still meant to run. 50643 reliore
-// had spend but no campaign row in the paste.
-//
-// Ad sets: the ad-set pivot was a fragment (15 of 54 rows). Only what could be
-// placed with certainty is seeded — "08/27/26 swipes" matches NEW CBO REVIDA | 17
-// to the cent, and the "test n - flexivita" ad sets sit under MAIN CBO Flexivita.
-// "test 11", "test 20" and "test 48 - Video UGC Ad" could not be placed.
+// Ad sets: the ad-set pivots were fragments (two pastes, ~30 of 54 rows). Only
+// what the spend totals place to the cent is seeded:
+//   NEW CBO REVIDA | 17      ← 08/27/26 swipes
+//   MAIN CBO Flexivita       ← the "test n - flexivita" set
+//   MAIN CBO Lidlift (AD 10) ← test 8 / test 6 / test 10 LidLift™ (83.13+1.53+0.01 = 84.67)
+//   MAIN CBO Affinera 10     ← 09/10/26 swipes (0.08)
+//   NEW CBO Ozempil (50643)  ← 09/11/26 - Old Winner (105.36)
+//   NEW CBO Bellavren (AD 2) ← 09/11/26 (0.49) — account inferred, see below
+// Not placed: "test 11", "test 20", "test 48 - Video UGC Ad", "08/26/26 batch
+// Concept", "08/21/26 batch concepts". #9790 AD 2 totals 81.84 and only NEW CBO
+// Bellavren's 0.49 could be attributed to it; the rest of that account is unknown.
 
 /* #2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA — on hold */
 running(
@@ -346,12 +381,38 @@ running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', 
   { name: '08/27/26 swipes', launched: [2026, 8, 27] },
 ])
 running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW CBO Ozempil 17', 'NEW', [])
+running('cm_uk_drycontrol_17', 'ac_7966', 'p_drycontrol', 'MAIN CBO DryControl 17', 'MAIN', [])
 /* #6347 - UK | AD 4 - Danny [ROAS A] 8384 - PP - RHKA */
 running('cm_uk_revida_4', 'ac_6347', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
 running('cm_uk_bellavren_4', 'ac_6347', 'p_bellavren', 'CBO Bellavren 4', 'MAIN', [], { onHold: true })
 /* #3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA */
-running('cm_uk_lidlift_7', 'ac_3396', 'p_lidlift', 'MAIN CBO Lidlift', 'MAIN', [], { onHold: true })
+running('cm_uk_lidlift_7', 'ac_3396', 'p_lidlift', 'MAIN CBO Lidlift', 'MAIN', [])
 running('cm_uk_lidlift_7_new', 'ac_3396', 'p_lidlift', 'NEW CBO Lidlift 7', 'NEW', [])
+/* #2849 - UK | AD 10 - Danny [ROAS A] 9274 - PP - RHKA — on hold */
+running(
+  'cm_uk_lidlift_10',
+  'ac_2849',
+  'p_lidlift',
+  'MAIN CBO Lidlift',
+  'MAIN',
+  [
+    { name: 'test 8 LidLift™', concept: 'CUSTOM' },
+    { name: 'test 6 LidLift™', concept: 'CUSTOM' },
+    { name: 'test 10 LidLift™', concept: 'CUSTOM' },
+  ],
+  { onHold: true },
+)
+running('cm_uk_affinera_10', 'ac_2849', 'p_affinera', 'MAIN CBO Affinera 10', 'MAIN', [
+  { name: '09/10/26 swipes', launched: [2026, 9, 10] },
+])
+/* #9790 - UK | AD 2 - Danny [ROAS A] 8386 - PP - RHKA */
+running('cm_uk_bellavren_2', 'ac_9790', 'p_bellavren', 'NEW CBO Bellavren', 'NEW', [
+  { name: '09/11/26', launched: [2026, 9, 11] },
+])
+/* 50643 reliore [GO DGTL] */
+running('cm_uk_ozempil_reliore', 'ac_50643', 'p_ozempil', 'NEW CBO Ozempil', 'NEW', [
+  { name: '09/11/26 - Old Winner', launched: [2026, 9, 11], concept: 'CUSTOM' },
+])
 /* #7965 - UK | AD 16 - Danny - ADSC */
 running('cm_uk_revida_16', 'ac_7965', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
 
