@@ -48,14 +48,14 @@ trying things against the seed without touching the team's live data.
 
 `src/data/seed.ts` holds the team's real accounts and campaigns: 17 ADSC, 18 RHKA and
 17 GO DGTL accounts across UK, CANADA, AUSTRALIA and US (each with the supplier's own
-label and the account's timezone). Campaigns and
-ad sets are in for AUSTRALIA as of 20 Sep 2026; the other markets' campaigns arrive
-next. Campaigns keep their
-Meta names verbatim (`MAIN CBO Revida 4`) with a **MAIN** type; the app only generates
-§4.1 names for CBOs it creates. Each running campaign carries one placeholder ad set,
-`existing ads`, with no launch date or history — it makes the CBO read as live and gives
-Next batch something to sit under, and is replaced when the real ad-set names come in.
-Killed campaigns are not seeded. Spend and results are not stored (the PRD rules
+label and the account's timezone). Campaigns and ad sets are complete for AUSTRALIA as
+of 14 Sep 2026 (eight CBOs, every ad set with its real name and launch date); the other
+markets' campaigns arrive next. Campaigns keep their Meta names verbatim
+(`MAIN CBO Revida 4`) with a **MAIN** type; the app only generates §4.1 names for CBOs
+it creates. A campaign whose ad sets have not been supplied yet carries one placeholder
+ad set, `existing ads`, with no launch date or history — it makes the CBO read as live
+and gives Next batch something to sit under, and is replaced when the real names come
+in. Killed campaigns are not seeded. Spend and results are not stored (the PRD rules
 metrics out).
 
 ## Design

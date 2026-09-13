@@ -285,7 +285,9 @@ running('cm_lungpure', 'ac_8519', 'p_lungpure', 'MAIN CBO LungPure', 'MAIN', [
   { name: '09/14/26 swipes', launched: [2026, 9, 14] },
 ])
 /* Ad sets not sent yet — placeholder until they are. */
-running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN', [])
+running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN', [
+  { name: '09/10/26 SWIPES', launched: [2026, 9, 10] },
+])
 
 export function createSeedDb(): Db {
   return {
