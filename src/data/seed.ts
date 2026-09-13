@@ -346,17 +346,20 @@ running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN',
 // AD 4. They keep running in Meta; Next batch skips them. There is a second,
 // separate "MAIN CBO Lidlift" on AD 7 (#3396) — different spend, not held.
 //
-// Ad sets: the ad-set pivots were fragments (two pastes, ~30 of 54 rows). Only
-// what the spend totals place to the cent is seeded:
-//   NEW CBO REVIDA | 17      ← 08/27/26 swipes
-//   MAIN CBO Flexivita       ← the "test n - flexivita" set
+// Ad sets: the ad-set pivots came as fragments (three pastes of a 54-row report).
+// Only what the spend totals place to the cent is seeded:
+//   NEW CBO REVIDA | 17      ← 08/27/26 swipes (57.04)
+//   NEW CBO Ozempil 17       ← 08/31/26 concepts (61.91)
+//   MAIN CBO DryControl 17   ← 08/30/26 swipes (69.73)
+//   MAIN CBO Flexivita       ← eight "test n flexivita" + test 11 + test 20 +
+//                              test 48 - Video UGC Ad (sum 163.07, 8 results)
 //   MAIN CBO Lidlift (AD 10) ← test 8 / test 6 / test 10 LidLift™ (83.13+1.53+0.01 = 84.67)
 //   MAIN CBO Affinera 10     ← 09/10/26 swipes (0.08)
 //   NEW CBO Ozempil (50643)  ← 09/11/26 - Old Winner (105.36)
 //   NEW CBO Bellavren (AD 2) ← 09/11/26 (0.49) — account inferred, see below
-// Not placed: "test 11", "test 20", "test 48 - Video UGC Ad", "08/26/26 batch
-// Concept", "08/21/26 batch concepts". #9790 AD 2 totals 81.84 and only NEW CBO
-// Bellavren's 0.49 could be attributed to it; the rest of that account is unknown.
+// Not placed: "08/26/26 batch Concept" (8.14) and "08/21/26 batch concepts"
+// (15.51). #9790 AD 2 totals 81.84 and only NEW CBO Bellavren's 0.49 could be
+// attributed to it; the rest of that account is unknown.
 
 /* #2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA — on hold */
 running(
@@ -374,6 +377,9 @@ running(
     { name: 'test 9 flexivita', concept: 'CUSTOM' },
     { name: 'test 10 flexivita', concept: 'CUSTOM' },
     { name: 'test 42 - flexivita', concept: 'CUSTOM' },
+    { name: 'test 11', concept: 'CUSTOM' },
+    { name: 'test 20', concept: 'CUSTOM' },
+    { name: 'test 48 - Video UGC Ad', concept: 'CUSTOM' },
   ],
   { onHold: true },
 )
@@ -381,8 +387,12 @@ running(
 running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', [
   { name: '08/27/26 swipes', launched: [2026, 8, 27] },
 ])
-running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW CBO Ozempil 17', 'NEW', [])
-running('cm_uk_drycontrol_17', 'ac_7966', 'p_drycontrol', 'MAIN CBO DryControl 17', 'MAIN', [])
+running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW CBO Ozempil 17', 'NEW', [
+  { name: '08/31/26 concepts', launched: [2026, 8, 31], concept: 'CUSTOM' },
+])
+running('cm_uk_drycontrol_17', 'ac_7966', 'p_drycontrol', 'MAIN CBO DryControl 17', 'MAIN', [
+  { name: '08/30/26 swipes', launched: [2026, 8, 30] },
+])
 /* #6347 - UK | AD 4 - Danny [ROAS A] 8384 - PP - RHKA */
 running('cm_uk_revida_4', 'ac_6347', 'p_revida', 'MAIN CBO Revida', 'MAIN', [])
 running('cm_uk_bellavren_4', 'ac_6347', 'p_bellavren', 'CBO Bellavren 4', 'MAIN', [], { onHold: true })
