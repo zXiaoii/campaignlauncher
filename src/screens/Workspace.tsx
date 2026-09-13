@@ -67,14 +67,21 @@ const COUNTRY_KEY = 'mb.lastCountry'
 const COLLAPSE_KEY = 'mb.collapsedAccounts'
 const VIEW_KEY = 'mb.workspaceView'
 
+/**
+ * Remembered UI state. `scope: 'session'` forgets on the next fresh open — used
+ * for collapsed accounts, so the workspace always starts fully expanded and a
+ * collapse made weeks ago never hides a CBO that was added since.
+ */
 function usePersisted<T>(
   key: string,
   initial: T,
   valid?: (v: T) => boolean,
+  scope: 'local' | 'session' = 'local',
 ): [T, (v: T | ((prev: T) => T)) => void] {
+  const store = () => (scope === 'session' ? window.sessionStorage : window.localStorage)
   const [value, setValue] = useState<T>(() => {
     try {
-      const raw = window.localStorage.getItem(key)
+      const raw = store().getItem(key)
       const parsed = raw ? (JSON.parse(raw) as T) : initial
       return valid && !valid(parsed) ? initial : parsed
     } catch {
@@ -83,11 +90,11 @@ function usePersisted<T>(
   })
   useEffect(() => {
     try {
-      window.localStorage.setItem(key, JSON.stringify(value))
+      store().setItem(key, JSON.stringify(value))
     } catch {
       /* private mode — fall back to in-memory only */
     }
-  }, [key, value])
+  }, [key, value]) // eslint-disable-line react-hooks/exhaustive-deps
   return [value, setValue]
 }
 
@@ -106,7 +113,7 @@ export function Workspace({
 }) {
   const { db } = useStore()
   const [countryId, setCountryId] = usePersisted(COUNTRY_KEY, db.countries[0].id)
-  const [collapsed, setCollapsed] = usePersisted<string[]>(COLLAPSE_KEY, [])
+  const [collapsed, setCollapsed] = usePersisted<string[]>(COLLAPSE_KEY, [], undefined, 'session')
   const [view, setView] = usePersisted<View>(VIEW_KEY, 'grid', (v) =>
     ['grid', 'bento', 'table'].includes(v),
   )

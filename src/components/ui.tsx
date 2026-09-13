@@ -13,6 +13,7 @@ import {
   type ButtonHTMLAttributes,
   type ReactNode,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 export function cn(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(' ')
@@ -606,22 +607,46 @@ export function OverflowMenu({
 }) {
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
+  // Rendered into <body> with fixed coordinates so no card, section or table
+  // with overflow clipping can cut it off; flips above the button when the
+  // viewport has no room below.
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number } | null>(null)
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false)
+      const t = e.target as Node
+      if (!wrap.current?.contains(t) && !menu.current?.contains(t)) setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false)
     }
+    const onMove = () => setOpen(false)
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', onMove, true)
+    window.addEventListener('resize', onMove)
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', onMove, true)
+      window.removeEventListener('resize', onMove)
     }
   }, [open])
+
+  const place = () => {
+    const r = wrap.current?.getBoundingClientRect()
+    if (!r) return
+    const estimated = entries.length * 30 + 10 + entries.filter((e) => e.separatorBefore).length * 11
+    const spaceBelow = window.innerHeight - r.bottom - 8
+    const right = Math.max(8, window.innerWidth - r.right)
+    setPos(
+      spaceBelow >= estimated || spaceBelow >= r.top
+        ? { top: r.bottom + 5, right }
+        : { bottom: window.innerHeight - r.top + 5, right },
+    )
+  }
 
   return (
     <div className="relative" ref={wrap}>
@@ -632,15 +657,20 @@ export function OverflowMenu({
         aria-label="More actions"
         onClick={(e) => {
           e.stopPropagation()
+          if (!open) place()
           setOpen((o) => !o)
         }}
       >
         {label}
       </Button>
-      {open && (
+      {open &&
+        pos &&
+        createPortal(
         <div
+          ref={menu}
           role="menu"
-          className="absolute right-0 top-[calc(100%+5px)] z-20 min-w-[214px] p-[5px] bg-surface-raised border border-line-strong rounded-lg shadow-menu animate-pop"
+          style={{ position: 'fixed', top: pos.top, bottom: pos.bottom, right: pos.right }}
+          className="z-[70] min-w-[214px] p-[5px] bg-surface-raised border border-line-strong rounded-lg shadow-menu animate-pop"
         >
           {entries.map((entry, i) => (
             <div key={`${entry.label}-${i}`}>
@@ -661,8 +691,9 @@ export function OverflowMenu({
               </button>
             </div>
           ))}
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </div>
   )
 }
