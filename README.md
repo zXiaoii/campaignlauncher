@@ -186,8 +186,21 @@ is: the leading `MM/DD/YY` becomes the launch date at noon, "swipes" / "iteratio
 and lines that would push the CBO past four ad sets are flagged before saving. A CBO
 pasted without ad sets gets the `existing ads` placeholder; the same drawer's second mode,
 **Add ad sets to a CBO already here**, replaces that placeholder with the real names
-later. `src/importing.ts` holds the parser; the reducer's `CAMPAIGN_IMPORT` enforces the
-rules.
+later.
+
+**Paste a Meta export** is the third mode and the fastest for a whole market: in Ads
+Manager, Ad sets tab → Reports → Export table data → CSV (or select the rows and copy the
+table). Drop the file in or paste the text. The parser finds the *Campaign name* and *Ad
+set name* columns by header (casing and order do not matter), de-duplicates ad-level rows,
+and, when an *Ad set delivery* column is present, skips ad sets Meta reports as off,
+inactive, completed or deleted (toggle). Every campaign in the file becomes a card: new
+CBOs get their product guessed from the name (editable), CBOs already in the account
+only receive their missing ad sets, and a campaign whose ad sets are all off is left out
+as killed. Anything that would exceed four ad sets is flagged. One click adds them all,
+atomically. Excel (.xlsx) files are not read — choose CSV in the export dialog.
+
+`src/importing.ts` holds the parsers; the reducer's `CAMPAIGN_IMPORT` /
+`CAMPAIGN_IMPORT_MANY` enforce the rules.
 
 ## Instructions for setup — typed, in Charles's words
 

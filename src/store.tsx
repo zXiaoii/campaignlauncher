@@ -136,6 +136,16 @@ export interface ImportedAdsetInput {
   conceptLabel: string
 }
 
+export interface CampaignImportInput {
+  adAccountId: string
+  /** Add to this CBO; when unset a new campaign is created from the fields below. */
+  campaignId?: string
+  name?: string
+  productName?: string
+  campaignType?: CampaignType
+  adsets: ImportedAdsetInput[]
+}
+
 export interface NamePreview {
   accountDisplayName: string
   campaignName: string
@@ -257,17 +267,9 @@ type Action =
    * one that is here already. Nothing else is touched, so this is safe on the live
    * database at any time (unlike Reset data).
    */
-  | {
-      type: 'CAMPAIGN_IMPORT'
-      adAccountId: string
-      /** Add to this CBO; when unset a new campaign is created from the fields below. */
-      campaignId?: string
-      name?: string
-      productName?: string
-      campaignType?: CampaignType
-      adsets: ImportedAdsetInput[]
-      actorId: string
-    }
+  | ({ type: 'CAMPAIGN_IMPORT'; actorId: string } & CampaignImportInput)
+  /** Several CBOs from one Meta export, all or nothing. */
+  | { type: 'CAMPAIGN_IMPORT_MANY'; items: CampaignImportInput[]; actorId: string }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -474,6 +476,17 @@ function reducer(state: Db, action: Action): Db {
     log(out, action.actorId, 'launch', 'batch', 'NEXT_BATCH', {
       campaigns: action.campaignIds.length,
     })
+    return out
+  }
+
+  if (action.type === 'CAMPAIGN_IMPORT_MANY') {
+    if (action.items.length === 0) throw new LaunchRuleError('Nothing selected to add.')
+    let next = state
+    for (const item of action.items) {
+      next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
+    }
+    const out: Db = { ...next }
+    log(out, action.actorId, 'campaign', 'batch', 'CAMPAIGNS_IMPORTED', { campaigns: action.items.length })
     return out
   }
 
@@ -1433,14 +1446,10 @@ export function useActions() {
         run({ type: 'SETUP_SET_BLOCKER', taskId, reason, actorId: currentUser.id }),
       setInstructions: (taskId: string, instructions?: string) =>
         run({ type: 'SETUP_SET_INSTRUCTIONS', taskId, instructions, actorId: currentUser.id }),
-      importCampaign: (input: {
-        adAccountId: string
-        campaignId?: string
-        name?: string
-        productName?: string
-        campaignType?: CampaignType
-        adsets: ImportedAdsetInput[]
-      }) => run({ type: 'CAMPAIGN_IMPORT', ...input, actorId: currentUser.id }),
+      importCampaign: (input: CampaignImportInput) =>
+        run({ type: 'CAMPAIGN_IMPORT', ...input, actorId: currentUser.id }),
+      importCampaigns: (items: CampaignImportInput[]) =>
+        run({ type: 'CAMPAIGN_IMPORT_MANY', items, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>
