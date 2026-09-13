@@ -49,7 +49,7 @@ trying things against the seed without touching the team's live data.
 `src/data/seed.ts` holds the team's real accounts and campaigns: 17 ADSC, 18 RHKA and
 17 GO DGTL accounts across UK, CANADA, AUSTRALIA and US (each with the supplier's own
 label and the account's timezone). Campaigns and ad sets are complete for AUSTRALIA
-(eight CBOs) and UK (15 CBOs, 29 ad sets, from Charles's Ads Manager export) as of
+(eight CBOs) and UK (15 CBOs, 30 ad sets, from Charles's Ads Manager export) as of
 14 Sep 2026; CANADA and US arrive through **Add existing CBO** once the app is live. Campaigns keep their Meta names verbatim
 (`MAIN CBO Revida 4`) with a **MAIN** type; the app only generates §4.1 names for CBOs
 it creates. A campaign whose ad sets have not been supplied yet carries one placeholder
@@ -184,6 +184,20 @@ its ad sets stay visible, can be relaunched elsewhere, and setup history is unto
 Seeded on hold for UK: MAIN CBO Flexivita (AD 1), MAIN CBO Lidlift (AD 7) and CBO
 Bellavren 4 (AD 4). Imported CBOs may carry more than four ad sets (they already exist in
 Meta); they read as full until ad sets are archived.
+
+## Danny's Overview — the daily dashboard
+
+Danny's home tab is a dashboard rather than a log (the day-by-day log is his *Launches*
+tab). Top to bottom: six headline numbers (launched on the chosen day, launched in the
+last 7 days, in flight now, blocked, late, problem accounts); **What everyone did** — one
+card per person with every action they took that day, in plain English, each row opening
+the ad set it concerns, with a one-line tally ("3 planned · 1 imported"); **Needs
+attention right now** — blockers, late tasks, Yzah's open requests and problem accounts,
+or a plain "Nothing stuck"; a **Markets** table (accounts, CBOs, live ad sets, ready, in
+flight, full, on hold, killed, launched in 7 days per market); a 14-day launch-rhythm bar
+that doubles as a day picker; and the in-flight list. Everything is derived from the
+activity log and the records the app already keeps (`src/activity.ts` turns every log
+row into a sentence), so it needs no extra data entry and stays read-only.
 
 ## Killed CBOs
 

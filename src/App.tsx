@@ -9,6 +9,7 @@ import { useTheme } from './theme'
 import { AdAccounts } from './screens/AdAccounts'
 import { AdsetDrawer } from './screens/AdsetDrawer'
 import { CreativeTasks } from './screens/CreativeTasks'
+import { Dashboard } from './screens/Dashboard'
 import { DayView } from './screens/DayView'
 import { Followups } from './screens/Followups'
 import { LaunchDrawer, type LaunchIntent } from './screens/LaunchDrawer'
@@ -155,9 +156,7 @@ function Shell() {
             showInFlight={isCharles}
           />
         )}
-        {active === 'overview' && (
-          <DayView title="Overview" subtitle="Everything launched, day by day." onOpenAdset={setAdsetId} />
-        )}
+        {active === 'overview' && <Dashboard onOpenAdset={setAdsetId} />}
         {active === 'creative' && <CreativeTasks />}
         {active === 'setup' && <SetupTasks />}
         {active === 'accounts' && <AdAccounts onOpenAdset={setAdsetId} />}
