@@ -19,7 +19,7 @@ import {
 import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
-import { PLACEHOLDER_ADSET_NAME } from './importing'
+import { isPlaceholderAdset, PLACEHOLDER_ADSET_NAME } from './importing'
 import { SignIn } from './screens/SignIn'
 import {
   buildAdsetName,
@@ -370,7 +370,7 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
     .sort((a, b) => (a.launchedAt! < b.launchedAt! ? 1 : -1))
   const source = launched.find((a) => a.status === 'ACTIVE') ?? launched[0]
 
-  // An imported "existing ads" placeholder has no framework to copy — the next
+  // An imported placeholder ("ad sets not imported yet") has no framework to copy — the next
   // batch after it is the PRD default, Swipes + Playbook.
   const conceptType =
     source && source.conceptType !== 'CUSTOM' ? source.conceptType : 'SWIPES_PLAYBOOK'
@@ -749,13 +749,11 @@ function reducer(state: Db, action: Action): Db {
         ]
       }
 
-      // Real ad sets replace the "existing ads" stand-in, exactly as they do in the seed.
+      // Real ad sets replace the placeholder stand-in, exactly as they do in the seed.
       const incoming = action.adsets.map((a) => ({ ...a, name: a.name.trim() })).filter((a) => a.name)
       let adsets = state.adsets
       if (incoming.length > 0) {
-        adsets = adsets.filter(
-          (a) => !(a.campaignId === campaignId && a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt),
-        )
+        adsets = adsets.filter((a) => !(a.campaignId === campaignId && isPlaceholderAdset(a)))
       }
       const current = adsets.filter((a) => a.campaignId === campaignId)
       const names = new Set(current.map((a) => a.name))

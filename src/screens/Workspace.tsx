@@ -35,6 +35,7 @@ import {
   CampaignTypeChip,
   isAccountProblem,
 } from '../labels'
+import { isPlaceholderAdset } from '../importing'
 import { MAX_ADSETS_PER_CAMPAIGN } from '../naming'
 import {
   accountsInCountry,
@@ -753,6 +754,7 @@ function AdsetRow({
   const source = adset.sourceAdsetId
     ? db.adsets.find((a) => a.id === adset.sourceAdsetId)
     : undefined
+  const placeholder = isPlaceholderAdset(adset)
 
   return (
     <div
@@ -772,7 +774,10 @@ function AdsetRow({
         muted && 'opacity-55',
       )}
     >
-      <span className={cn(mono, 'truncate min-w-0')} title={adset.name}>
+      <span
+        className={cn(mono, 'truncate min-w-0', placeholder && 'italic text-fg-tertiary')}
+        title={placeholder ? 'Stand-in until the real ad-set names are imported.' : adset.name}
+      >
         {adset.name}
       </span>
       <span className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -781,7 +786,7 @@ function AdsetRow({
             ↩ {source.name.slice(0, 8)}
           </Chip>
         )}
-        <AdsetStatusChip status={adset.status} />
+        {placeholder ? <Chip tone="quiet">placeholder</Chip> : <AdsetStatusChip status={adset.status} />}
       </span>
     </div>
   )
@@ -800,21 +805,24 @@ function AdsetTable({
 }) {
   const { db } = useStore()
 
-  const rows = groups.flatMap(({ account, campaigns }) =>
-    campaigns.flatMap((campaign) =>
-      liveAdsets(db, campaign.id).map((adset) => ({
-        account,
-        campaign,
+  // One block per CBO: the account, campaign, type and slots are written once,
+  // then its ad sets underneath. A CBO with eight ad sets is eight short rows,
+  // not eight copies of the same header.
+  const blocks = groups.flatMap(({ account, campaigns }) =>
+    campaigns.map((campaign) => ({
+      account,
+      campaign,
+      used: slotsUsed(db, campaign.id),
+      adsets: liveAdsets(db, campaign.id).map((adset) => ({
         adset,
-        used: slotsUsed(db, campaign.id),
-        source: adset.sourceAdsetId
-          ? db.adsets.find((a) => a.id === adset.sourceAdsetId)
-          : undefined,
+        source: adset.sourceAdsetId ? db.adsets.find((a) => a.id === adset.sourceAdsetId) : undefined,
       })),
-    ),
+    })),
   )
 
-  if (rows.length === 0) return <EmptyState title="No live ad sets in this country." />
+  if (blocks.every((b) => b.adsets.length === 0)) {
+    return <EmptyState title="No live ad sets in this country." />
+  }
 
   return (
     <TableWrap>
@@ -830,26 +838,51 @@ function AdsetTable({
         </tr>
       </thead>
       <tbody>
-        {rows.map(({ account, campaign, adset, used, source }) => (
-          <Tr key={adset.id} onClick={() => onOpenAdset(adset.id)}>
-            <NameTd value={account.displayName} />
-            <NameTd value={campaign.name} />
-            <Td className="whitespace-nowrap">
-              <span className="inline-flex gap-1.5">
-                <CampaignTypeChip type={campaign.campaignType} />
-                {campaign.onHold && <Chip tone="warn">⏸ On hold</Chip>}
-              </span>
-            </Td>
-            <NameTd value={adset.name} />
-            <Td className="whitespace-nowrap text-fg-secondary">
-              {used > MAX_ADSETS_PER_CAMPAIGN ? `${used} (over)` : `${used}/${MAX_ADSETS_PER_CAMPAIGN}`}
-            </Td>
-            <NameTd value={source ? `↩ ${source.name}` : '—'} muted />
-            <Td className="whitespace-nowrap">
-              <AdsetStatusChip status={adset.status} />
-            </Td>
-          </Tr>
-        ))}
+        {blocks.map(({ account, campaign, used, adsets }) =>
+          adsets.map(({ adset, source }, i) => {
+            const first = i === 0
+            return (
+              <Tr
+                key={adset.id}
+                onClick={() => onOpenAdset(adset.id)}
+                className={cn(first && i > -1 && 'border-t-2 border-t-line-strong')}
+              >
+                {first ? (
+                  <>
+                    <NameTd value={account.displayName} />
+                    <NameTd value={campaign.name} />
+                    <Td className="whitespace-nowrap">
+                      <span className="inline-flex gap-1.5">
+                        <CampaignTypeChip type={campaign.campaignType} />
+                        {campaign.onHold && <Chip tone="warn">⏸ On hold</Chip>}
+                      </span>
+                    </Td>
+                  </>
+                ) : (
+                  <>
+                    <Td className="text-fg-tertiary" />
+                    <Td className="text-fg-tertiary">
+                      <span className="pl-2 text-xs">↳</span>
+                    </Td>
+                    <Td />
+                  </>
+                )}
+                {isPlaceholderAdset(adset) ? (
+                  <Td className="italic text-fg-tertiary">{adset.name}</Td>
+                ) : (
+                  <NameTd value={adset.name} />
+                )}
+                <Td className="whitespace-nowrap text-fg-secondary">
+                  {first ? (used > MAX_ADSETS_PER_CAMPAIGN ? `${used} (over)` : `${used}/${MAX_ADSETS_PER_CAMPAIGN}`) : ''}
+                </Td>
+                <NameTd value={source ? `↩ ${source.name}` : '—'} muted />
+                <Td className="whitespace-nowrap">
+                  {isPlaceholderAdset(adset) ? <Chip tone="quiet">placeholder</Chip> : <AdsetStatusChip status={adset.status} />}
+                </Td>
+              </Tr>
+            )
+          }),
+        )}
       </tbody>
     </TableWrap>
   )

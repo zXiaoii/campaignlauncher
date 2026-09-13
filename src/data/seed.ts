@@ -4,7 +4,7 @@
 //
 // Campaigns are stored with their Meta names verbatim — the app only generates
 // names for CBOs it creates. Each running campaign carries one placeholder ad set
-// ("existing ads") so the CBO reads as live and Next batch has something to model
+// ("ad sets not imported yet") so the CBO reads as live and Next batch has something to model
 // on; it has no launch date or history because none was given. Replace the
 // placeholders with the real ad-set names when they come in.
 //
@@ -13,6 +13,7 @@
 // results are not stored: the PRD rules metrics out.
 
 import { at } from '../clock'
+import { PLACEHOLDER_ADSET_NAME } from '../importing'
 import { extractAdAccountNumber } from '../naming'
 import type {
   AdAccount,
@@ -242,7 +243,7 @@ const PRODUCTS: Product[] = [
 // the time of day was not given; it only feeds the 48-hour helper. The concept
 // label behind every one of them is the PRD default, so the next batch after
 // `09/07/26 SWIPES` is `09/20/26 swipes + playbook`. A campaign whose ad sets
-// have not been sent yet gets one "existing ads" placeholder instead.
+// have not been sent yet gets one "ad sets not imported yet" placeholder instead.
 
 const campaigns: Campaign[] = []
 const adsets: Adset[] = []
@@ -278,9 +279,9 @@ function running(
     adsets.push({
       id: `${id}_existing`,
       campaignId: id,
-      name: 'existing ads',
+      name: PLACEHOLDER_ADSET_NAME,
       conceptType: 'CUSTOM',
-      conceptLabel: 'existing ads',
+      conceptLabel: PLACEHOLDER_ADSET_NAME,
       status: 'ACTIVE',
     })
     return
@@ -336,7 +337,7 @@ running('cm_omegamax_6', 'ac_8180', 'p_omegamax', 'MAIN CBO OMEGAMAX 6', 'MAIN',
 
 // ---- UK ------------------------------------------------------------------
 // From the Ads Reporting pivot (campaign level only, so every CBO carries the
-// "existing ads" placeholder until its ad sets come in). Campaigns were matched to
+// placeholder until its ad sets come in). Campaigns were matched to
 // accounts by the pivot's spend totals — the number at the end of a name is the
 // account's "AD n", the same convention as AUS.
 //

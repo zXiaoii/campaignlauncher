@@ -830,14 +830,16 @@ export function StackedTd({
 export function Tr({
   children,
   onClick,
+  className,
 }: {
   children: ReactNode
   onClick?: () => void
+  className?: string
 }) {
   return (
     <tr
       onClick={onClick}
-      className={cn(onClick && 'cursor-pointer transition-colors hover:bg-surface-hover')}
+      className={cn(onClick && 'cursor-pointer transition-colors hover:bg-surface-hover', className)}
     >
       {children}
     </tr>

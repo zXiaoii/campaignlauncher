@@ -3,7 +3,7 @@
 // exactly as it is in Meta, pastes the ad-set names one per line, and the
 // records land next to everything else. Safe on the live database at any time.
 //
-// Also adds ad sets to a CBO that is already here — the way an "existing ads"
+// Also adds ad sets to a CBO that is already here — the way an "ad sets not imported yet"
 // placeholder gets replaced by the real names when they come in.
 
 import { useMemo, useState } from 'react'
@@ -29,6 +29,7 @@ import { CONCEPT_TYPE_LABEL } from '../labels'
 import {
   guessProduct,
   isDeliveryOff,
+  isPlaceholderAdset,
   parseAdsetLine,
   parseAdsetLines,
   parseMetaExport,
@@ -85,7 +86,7 @@ function planExport(
   return order.map((campaignName) => {
     const existing = accountCampaigns.find((c) => c.name.toLowerCase() === campaignName.toLowerCase())
     const current = existing
-      ? adsetsInCampaign(db, existing.id).filter((a) => !(a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt))
+      ? adsetsInCampaign(db, existing.id).filter((a) => !isPlaceholderAdset(a))
       : []
     const currentNames = new Set(current.map((a) => a.name))
     const seen = new Set<string>()
@@ -102,7 +103,7 @@ function planExport(
     }
     const adding = adsets.filter((a) => !a.skipped)
     const liveNow = existing
-      ? liveAdsets(db, existing.id).filter((a) => !(a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt)).length
+      ? liveAdsets(db, existing.id).filter((a) => !isPlaceholderAdset(a)).length
       : 0
     const liveAfter = liveNow + adding.length
     const override = opts.products[campaignName]
@@ -159,7 +160,7 @@ export function ImportDrawer({
   const [lines, setLines] = useState('')
   const existingNames = existing
     ? adsetsInCampaign(db, existing.id)
-        .filter((a) => !(a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt))
+        .filter((a) => !isPlaceholderAdset(a))
         .map((a) => a.name)
     : []
   const existingKey = existingNames.join('\n')
@@ -171,7 +172,7 @@ export function ImportDrawer({
 
   // Live ad sets the CBO will hold after this — the four-slot rule applies here too.
   const liveNow = existing
-    ? liveAdsets(db, existing.id).filter((a) => !(a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt)).length
+    ? liveAdsets(db, existing.id).filter((a) => !isPlaceholderAdset(a)).length
     : 0
   const liveAfter = liveNow + good.length
 
@@ -280,7 +281,7 @@ export function ImportDrawer({
         body:
           good.length > 0
             ? `${good.length} ad ${good.length === 1 ? 'set' : 'sets'} now in the workspace. Nothing else was touched.`
-            : 'Added with an "existing ads" placeholder — paste the real ad-set names when you have them.',
+            : 'Added with a placeholder row — paste the real ad-set names when you have them.',
         ms: 8000,
       })
       onClose()
@@ -387,7 +388,7 @@ export function ImportDrawer({
             {
               value: 'EXISTING' as Mode,
               title: 'Add ad sets to a CBO already here',
-              desc: 'Replaces an "existing ads" placeholder with the real names.',
+              desc: 'Replaces the "ad sets not imported yet" placeholder with the real names.',
               disabled: accountCampaigns.length === 0,
               disabledReason: 'No CBOs in this ad account yet.',
             },

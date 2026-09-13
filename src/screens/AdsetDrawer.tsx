@@ -29,6 +29,7 @@ import {
 } from '../labels'
 import { formatTime, MAX_ADSETS_PER_CAMPAIGN } from '../naming'
 import { isCampaignFull, rowForAdset, slotsUsed, userName } from '../selectors'
+import { isPlaceholderAdset } from '../importing'
 import { useActions, useStore } from '../store'
 import { InstructionsPanel } from './Instructions'
 import type { LaunchIntent } from './LaunchDrawer'
@@ -116,7 +117,7 @@ function ImportedAdsetDrawer({
         Launcher — there is no brief or Drive folder for it here. To relaunch its ads,
         setup duplicates them inside Meta; you tell them exactly which ones in the
         instructions.
-        {adset.name === 'existing ads' && !adset.launchedAt && (
+        {isPlaceholderAdset(adset) && (
           <>
             {' '}
             This is a placeholder: use <strong>Add existing CBO → Add ad sets to a CBO already here</strong> to

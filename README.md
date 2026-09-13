@@ -53,7 +53,7 @@ of 14 Sep 2026 (eight CBOs, every ad set with its real name and launch date); th
 markets' campaigns arrive next. Campaigns keep their Meta names verbatim
 (`MAIN CBO Revida 4`) with a **MAIN** type; the app only generates §4.1 names for CBOs
 it creates. A campaign whose ad sets have not been supplied yet carries one placeholder
-ad set, `existing ads`, with no launch date or history — it makes the CBO read as live
+ad set, `ad sets not imported yet`, with no launch date or history — it makes the CBO read as live
 and gives Next batch something to sit under, and is replaced when the real names come
 in. Killed campaigns are not seeded. Spend and results are not stored (the PRD rules
 metrics out).
@@ -195,7 +195,7 @@ default), then paste the ad-set names one per line. Each line is parsed the way 
 is: the leading `MM/DD/YY` becomes the launch date at noon, "swipes" / "iterations" /
 "deep" set the framework Next batch copies, anything else is a custom label. Duplicates
 and lines that would push the CBO past four ad sets are flagged before saving. A CBO
-pasted without ad sets gets the `existing ads` placeholder; the same drawer's second mode,
+pasted without ad sets gets the `ad sets not imported yet` placeholder (shown in italics with a *placeholder* chip instead of a status); the same drawer's second mode,
 **Add ad sets to a CBO already here**, replaces that placeholder with the real names
 later.
 
