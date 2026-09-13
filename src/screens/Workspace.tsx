@@ -42,6 +42,7 @@ import {
   adsetsInCampaign,
   campaignsInAccount,
   isCampaignFull,
+  killedCampaignsInAccount,
   liveAdsets,
   OCCUPYING_STATUSES,
   plannedAdsets,
@@ -60,7 +61,7 @@ type View = 'grid' | 'bento' | 'table'
  * Campaign state, as Charles thinks about it when deciding what to do next:
  * ready for a batch, waiting on one, out of room, or sitting on a broken account.
  */
-type StateFilter = 'ALL' | 'READY' | 'IN_FLIGHT' | 'LAUNCHED_TODAY' | 'FULL' | 'ON_HOLD'
+type StateFilter = 'ALL' | 'READY' | 'IN_FLIGHT' | 'LAUNCHED_TODAY' | 'FULL' | 'ON_HOLD' | 'KILLED'
 const ALL = 'ALL'
 
 const COUNTRY_KEY = 'mb.lastCountry'
@@ -140,6 +141,7 @@ export function Workspace({
   // Same rules, same order, as the Next batch button — so "Ready (N)" here is
   // always the N the bulk button will launch into.
   const stateOf = (c: Campaign): Exclude<StateFilter, 'ALL'> => {
+    if (c.status === 'KILLED') return 'KILLED'
     if (c.onHold) return 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
@@ -151,12 +153,15 @@ export function Workspace({
 
   // Everything in the country, classified once — the state counts in the filter
   // come from this, so they never disagree with what the cards show.
+  // Killed CBOs ride along so the Killed filter can show them; "All" hides them.
   const classified = accounts.map((account) => ({
     account,
-    campaigns: campaignsInAccount(db, account.id).map((campaign) => ({
-      campaign,
-      state: stateOf(campaign),
-    })),
+    campaigns: [...campaignsInAccount(db, account.id), ...killedCampaignsInAccount(db, account.id)].map(
+      (campaign) => ({
+        campaign,
+        state: stateOf(campaign),
+      }),
+    ),
   }))
 
   const stateCounts = classified
@@ -178,6 +183,7 @@ export function Workspace({
           if (typeFilter !== ALL && campaign.campaignType !== typeFilter) return false
           if (productFilter !== ALL && campaign.productId !== productFilter) return false
           if (stateFilter !== ALL && state !== stateFilter) return false
+          if (stateFilter === ALL && state === 'KILLED') return false
           if (!q) return true
           const product = db.products.find((p) => p.id === campaign.productId)
           return (
@@ -307,6 +313,7 @@ export function Workspace({
             { value: 'LAUNCHED_TODAY' as StateFilter, label: `Launched today (${stateCounts.LAUNCHED_TODAY ?? 0})` },
             { value: 'FULL' as StateFilter, label: `Full (${stateCounts.FULL ?? 0})` },
             { value: 'ON_HOLD' as StateFilter, label: `On hold (${stateCounts.ON_HOLD ?? 0})` },
+            { value: 'KILLED' as StateFilter, label: `Killed (${stateCounts.KILLED ?? 0})` },
           ]}
           onChange={setStateFilter}
         />
@@ -513,8 +520,10 @@ function CampaignCard({
   onResult: (text: string) => void
 }) {
   const { db } = useStore()
-  const { nextBatch, setCampaignHold } = useActions()
-  const live = liveAdsets(db, campaign.id)
+  const { nextBatch, setCampaignHold, setCampaignKilled } = useActions()
+  const killed = campaign.status === 'KILLED'
+  // A killed CBO has no live ad sets; its card shows the ones that went down with it.
+  const live = killed ? adsetsInCampaign(db, campaign.id) : liveAdsets(db, campaign.id)
   const held = Boolean(campaign.onHold)
   const history = adsetsInCampaign(db, campaign.id).filter(
     (a) => !OCCUPYING_STATUSES.includes(a.status),
@@ -532,6 +541,7 @@ function CampaignCard({
       className={cn(
         'flex flex-col border border-line border-l-2 bg-surface-raised shadow-highlight transition-colors hover:border-line-strong',
         bento ? 'rounded-xl' : 'rounded-lg',
+        killed && 'opacity-70 border-dashed',
         span,
       )}
       style={{ borderLeftColor: CAMPAIGN_TYPE_COLOR[campaign.campaignType] }}
@@ -546,6 +556,11 @@ function CampaignCard({
             ⏸ On hold
           </Chip>
         )}
+        {killed && (
+          <Chip tone="danger" title={campaign.killedAt ? `Killed ${new Date(campaign.killedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Killed'}>
+            ☠ Killed
+          </Chip>
+        )}
         <span
           className={cn(
             'ml-auto text-[11px] whitespace-nowrap',
@@ -558,9 +573,9 @@ function CampaignCard({
 
       <div className={cn('border-t border-line', twoUp && 'grid grid-cols-2')}>
         {live.map((adset) => (
-          <AdsetRow key={adset.id} adset={adset} onOpen={() => onOpenAdset(adset.id)} twoUp={twoUp} />
+          <AdsetRow key={adset.id} adset={adset} onOpen={() => onOpenAdset(adset.id)} twoUp={twoUp} muted={killed} />
         ))}
-        {Array.from({ length: MAX_ADSETS_PER_CAMPAIGN - used }).map((_, i) => (
+        {Array.from({ length: killed ? 0 : Math.max(0, MAX_ADSETS_PER_CAMPAIGN - used) }).map((_, i) => (
           <div
             key={`empty-${i}`}
             className={cn(
@@ -597,6 +612,23 @@ function CampaignCard({
               </>
             )}
           </span>
+        ) : killed ? (
+          <>
+            <span className="text-xs text-fg-secondary">
+              Switched off{campaign.killedBy ? ` by ${db.users.find((u) => u.id === campaign.killedBy)?.name ?? 'Charles'}` : ''}. Its ad sets are in the Library.
+            </span>
+            <span className="flex-1" />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (window.confirm(`Bring ${campaign.name} back? Its ad sets return as live and it rejoins the workspace.`)) {
+                  if (setCampaignKilled(campaign.id, false)) onResult(`${campaign.name} is back in the workspace.`)
+                }
+              }}
+            >
+              ↩ Revive
+            </Button>
+          </>
         ) : (
           <>
             {held ? (
@@ -689,6 +721,21 @@ function CampaignCard({
                           ? `${campaign.name} resumed — Next batch can target it again.`
                           : `${campaign.name} on hold — it keeps running in Meta, but Next batch and the bulk trigger skip it.`,
                       )
+                    }
+                  },
+                },
+                {
+                  label: '☠ Mark as killed',
+                  danger: true,
+                  onClick: () => {
+                    if (
+                      window.confirm(
+                        `Kill ${campaign.name}? It leaves the workspace and its ${used} live ad ${used === 1 ? 'set' : 'sets'} move to the Library as killed. You can revive it from the Killed filter.`,
+                      )
+                    ) {
+                      if (setCampaignKilled(campaign.id, true)) {
+                        onResult(`${campaign.name} marked as killed — find it under the Killed filter, or its ad sets in the Library.`)
+                      }
                     }
                   },
                 },
@@ -820,7 +867,7 @@ function AdsetTable({
       account,
       campaign,
       used: slotsUsed(db, campaign.id),
-      adsets: liveAdsets(db, campaign.id).map((adset) => ({
+      adsets: (campaign.status === 'KILLED' ? adsetsInCampaign(db, campaign.id) : liveAdsets(db, campaign.id)).map((adset) => ({
         adset,
         source: adset.sourceAdsetId ? db.adsets.find((a) => a.id === adset.sourceAdsetId) : undefined,
       })),
@@ -862,6 +909,7 @@ function AdsetTable({
                       <span className="inline-flex gap-1.5">
                         <CampaignTypeChip type={campaign.campaignType} />
                         {campaign.onHold && <Chip tone="warn">⏸ On hold</Chip>}
+                        {campaign.status === 'KILLED' && <Chip tone="danger">☠ Killed</Chip>}
                       </span>
                     </Td>
                   </>

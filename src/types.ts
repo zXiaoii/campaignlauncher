@@ -112,7 +112,13 @@ export interface Campaign {
   /** Generated name, exactly as it exists in Meta. */
   name: string
   campaignType: CampaignType
-  status: 'ACTIVE' | 'ARCHIVED'
+  /**
+   * KILLED: switched off in Meta for good. Leaves the workspace; its ad sets move
+   * to the Library as killed, so their creative can still be brought back.
+   */
+  status: 'ACTIVE' | 'ARCHIVED' | 'KILLED'
+  killedAt?: string
+  killedBy?: string
   /**
    * Still running in Meta, but the team no longer launches new ad sets into it.
    * Next batch and the bulk trigger skip it; everything else (setup history,

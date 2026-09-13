@@ -60,6 +60,13 @@ export function campaignsInAccount(db: Db, accountId: string): Campaign[] {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/** CBOs switched off for good — shown only behind the workspace's Killed filter. */
+export function killedCampaignsInAccount(db: Db, accountId: string): Campaign[] {
+  return db.campaigns
+    .filter((c) => c.adAccountId === accountId && c.status === 'KILLED')
+    .sort((a, b) => (a.killedAt ?? '') < (b.killedAt ?? '') ? 1 : -1)
+}
+
 export function adsetsInCampaign(db: Db, campaignId: string): Adset[] {
   return db.adsets
     .filter((a) => a.campaignId === campaignId)

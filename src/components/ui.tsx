@@ -595,6 +595,8 @@ export interface MenuEntry {
   disabled?: boolean
   disabledReason?: string
   separatorBefore?: boolean
+  /** Destructive — rendered in the danger colour. */
+  danger?: boolean
 }
 
 /** §3.3 — the ••• menu for secondary actions. */
@@ -685,7 +687,10 @@ export function OverflowMenu({
                   setOpen(false)
                   entry.onClick?.()
                 }}
-                className="block w-full h-[30px] px-[9px] rounded-md text-left text-fg transition-colors enabled:hover:bg-surface-hover disabled:text-fg-tertiary disabled:cursor-not-allowed"
+                className={cn(
+                  'block w-full h-[30px] px-[9px] rounded-md text-left transition-colors enabled:hover:bg-surface-hover disabled:text-fg-tertiary disabled:cursor-not-allowed',
+                  entry.danger ? 'text-danger enabled:hover:bg-danger-bg' : 'text-fg',
+                )}
               >
                 {entry.label}
               </button>

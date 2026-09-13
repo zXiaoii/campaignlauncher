@@ -185,6 +185,15 @@ Seeded on hold for UK: MAIN CBO Flexivita (AD 1), MAIN CBO Lidlift (AD 7) and CB
 Bellavren 4 (AD 4). Imported CBOs may carry more than four ad sets (they already exist in
 Meta); they read as full until ad sets are archived.
 
+## Killed CBOs
+
+**☠ Mark as killed** in the card menu (Charles only, confirm dialog) is for a CBO
+switched off in Meta for good. It leaves the workspace; its live ad sets become *killed*
+and move to the Library, so their creative can still be brought back with *Old / Killed
+Ad Set*. The state filter's **Killed (n)** bucket shows them dimmed with a **↩ Revive**
+button, which restores the campaign and the ad sets that went down with it. A CBO with a
+launch still in flight cannot be killed until that launch is cancelled.
+
 ## Add existing CBO — importing without a reset
 
 The seed is for day one. Once the app is live, **↓ Add existing CBO** (Workspace header,

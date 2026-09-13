@@ -271,6 +271,8 @@ type Action =
   | { type: 'CAMPAIGN_IMPORT_MANY'; items: CampaignImportInput[]; actorId: string }
   /** "We don't produce ad sets here anymore" — Next batch skips the CBO until resumed. */
   | { type: 'CAMPAIGN_SET_HOLD'; campaignId: string; onHold: boolean; actorId: string }
+  /** Switched off in Meta for good (or brought back). Live ad sets follow the campaign. */
+  | { type: 'CAMPAIGN_SET_KILLED'; campaignId: string; killed: boolean; actorId: string }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -429,6 +431,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
   const blockedReason =
     acc && acc.status === 'OFFBOARDED'
       ? `${acc.displayName} is off-boarded.`
+      : cm.status === 'KILLED'
+        ? `${cm.name} is killed.`
       : cm.onHold
         ? `${cm.name} is on hold — no new ad sets go into it. Resume it from the card menu first.`
       : isCampaignFull(db, campaignId)
@@ -808,6 +812,44 @@ function reducer(state: Db, action: Action): Db {
       log(db, action.actorId, 'campaign', cm.id, action.onHold ? 'CAMPAIGN_HELD' : 'CAMPAIGN_RESUMED', {
         campaignName: cm.name,
       })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'CAMPAIGN_SET_KILLED': {
+      assertCanWrite(role, 'createLaunch')
+      const cm = campaign(state, action.campaignId)
+      if (!cm) throw new LaunchRuleError('Campaign not found.')
+      const stamp = now().toISOString()
+      if (action.killed) {
+        if (cm.status === 'KILLED') throw new LaunchRuleError(`${cm.name} is already killed.`)
+        const inFlight = plannedAdsets(state, cm.id)
+        if (inFlight.length > 0) {
+          throw new LaunchRuleError(
+            `${cm.name} has ${inFlight[0].name} still in flight — cancel that launch first, then kill the CBO.`,
+          )
+        }
+        db.campaigns = state.campaigns.map((c) =>
+          c.id === cm.id ? { ...c, status: 'KILLED', killedAt: stamp, killedBy: action.actorId, onHold: undefined } : c,
+        )
+        // Live ad sets become killed — they stay in the Library so their creative
+        // can be brought back with "Old / Killed Ad Set".
+        db.adsets = state.adsets.map((a) =>
+          a.campaignId === cm.id && (a.status === 'ACTIVE' || a.status === 'STOPPED') ? { ...a, status: 'KILLED' } : a,
+        )
+        log(db, action.actorId, 'campaign', cm.id, 'CAMPAIGN_KILLED', { campaignName: cm.name })
+      } else {
+        if (cm.status !== 'KILLED') throw new LaunchRuleError(`${cm.name} is not killed.`)
+        db.campaigns = state.campaigns.map((c) =>
+          c.id === cm.id ? { ...c, status: 'ACTIVE', killedAt: undefined, killedBy: undefined } : c,
+        )
+        // The app never kills a single ad set on its own, so every killed ad set in
+        // this CBO went down with the campaign — bring them all back.
+        db.adsets = state.adsets.map((a) =>
+          a.campaignId === cm.id && a.status === 'KILLED' ? { ...a, status: 'ACTIVE' } : a,
+        )
+        log(db, action.actorId, 'campaign', cm.id, 'CAMPAIGN_REVIVED', { campaignName: cm.name })
+      }
       return db
     }
 
@@ -1463,6 +1505,8 @@ export function useActions() {
         run({ type: 'CAMPAIGN_IMPORT_MANY', items, actorId: currentUser.id }),
       setCampaignHold: (campaignId: string, onHold: boolean) =>
         run({ type: 'CAMPAIGN_SET_HOLD', campaignId, onHold, actorId: currentUser.id }),
+      setCampaignKilled: (campaignId: string, killed: boolean) =>
+        run({ type: 'CAMPAIGN_SET_KILLED', campaignId, killed, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>
