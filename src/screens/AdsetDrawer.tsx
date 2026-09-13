@@ -116,6 +116,13 @@ function ImportedAdsetDrawer({
         Launcher — there is no brief or Drive folder for it here. To relaunch its ads,
         setup duplicates them inside Meta; you tell them exactly which ones in the
         instructions.
+        {adset.name === 'existing ads' && !adset.launchedAt && (
+          <>
+            {' '}
+            This is a placeholder: use <strong>Add existing CBO → Add ad sets to a CBO already here</strong> to
+            replace it with the real names.
+          </>
+        )}
       </Callout>
       <Section title="Names">
         <CopyRow label="Ad account" value={account.displayName} />

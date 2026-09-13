@@ -19,6 +19,7 @@ import {
 import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
+import { PLACEHOLDER_ADSET_NAME } from './importing'
 import { SignIn } from './screens/SignIn'
 import {
   buildAdsetName,
@@ -40,6 +41,7 @@ import {
   campaignsInAccount,
   hasAdsetNamed,
   isCampaignFull,
+  OCCUPYING_STATUSES,
   plannedAdsets,
   slotsUsed,
 } from './selectors'
@@ -124,6 +126,14 @@ export interface CreateLaunchInput {
   setupInstructions?: string
   setupDueAt: string
   creativeDueAt: string
+}
+
+/** One ad set as it already runs in Meta — see `importing.ts` for how a line becomes this. */
+export interface ImportedAdsetInput {
+  name: string
+  launchedAt?: string
+  conceptType: ConceptType
+  conceptLabel: string
 }
 
 export interface NamePreview {
@@ -242,6 +252,22 @@ type Action =
   | { type: 'SETUP_SET_BLOCKER'; taskId: string; reason?: string; actorId: string }
   /** Charles rewrites (or clears) the instructions on a setup task that is not live yet. */
   | { type: 'SETUP_SET_INSTRUCTIONS'; taskId: string; instructions?: string; actorId: string }
+  /**
+   * Bring a CBO that already runs in Meta into the workspace — or add its ad sets to
+   * one that is here already. Nothing else is touched, so this is safe on the live
+   * database at any time (unlike Reset data).
+   */
+  | {
+      type: 'CAMPAIGN_IMPORT'
+      adAccountId: string
+      /** Add to this CBO; when unset a new campaign is created from the fields below. */
+      campaignId?: string
+      name?: string
+      productName?: string
+      campaignType?: CampaignType
+      adsets: ImportedAdsetInput[]
+      actorId: string
+    }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -661,6 +687,102 @@ function reducer(state: Db, action: Action): Db {
         adsetName,
         sourceAdsetId: input.sourceAdsetId,
         instructions,
+      })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'CAMPAIGN_IMPORT': {
+      assertCanWrite(role, 'createLaunch')
+      const acc = adAccount(state, action.adAccountId)
+      if (!acc) throw new LaunchRuleError('Pick the ad account the CBO runs in.')
+
+      let campaignId: string
+      let campaignName: string
+      if (action.campaignId) {
+        const cm = campaign(state, action.campaignId)
+        if (!cm || cm.adAccountId !== acc.id) throw new LaunchRuleError('That CBO is not in this ad account.')
+        campaignId = cm.id
+        campaignName = cm.name
+      } else {
+        const name = action.name?.trim() ?? ''
+        if (!name) throw new LaunchRuleError('Type the campaign name exactly as it is in Meta.')
+        if (campaignsInAccount(state, acc.id).some((c) => c.name.toLowerCase() === name.toLowerCase())) {
+          throw new LaunchRuleError(`${acc.displayName} already has a CBO named "${name}".`)
+        }
+        const typed = action.productName?.trim() ?? ''
+        if (!typed) throw new LaunchRuleError('Type the product.')
+        let prod = findProductByName(state, typed)
+        if (!prod) {
+          prod = { id: nextId('p'), name: typed, active: true }
+          db.products = [...state.products, prod]
+        }
+        campaignId = nextId('cm')
+        campaignName = name
+        db.campaigns = [
+          ...state.campaigns,
+          {
+            id: campaignId,
+            adAccountId: acc.id,
+            productId: prod.id,
+            name,
+            campaignType: action.campaignType ?? 'MAIN',
+            status: 'ACTIVE',
+            createdAt: now().toISOString(),
+          },
+        ]
+      }
+
+      // Real ad sets replace the "existing ads" stand-in, exactly as they do in the seed.
+      const incoming = action.adsets.map((a) => ({ ...a, name: a.name.trim() })).filter((a) => a.name)
+      let adsets = state.adsets
+      if (incoming.length > 0) {
+        adsets = adsets.filter(
+          (a) => !(a.campaignId === campaignId && a.name === PLACEHOLDER_ADSET_NAME && !a.launchedAt),
+        )
+      }
+      const current = adsets.filter((a) => a.campaignId === campaignId)
+      const names = new Set(current.map((a) => a.name))
+      for (const a of incoming) {
+        if (names.has(a.name)) throw new LaunchRuleError(`${campaignName} already has an ad set named "${a.name}".`)
+        names.add(a.name)
+      }
+      const liveAfter = current.filter((a) => OCCUPYING_STATUSES.includes(a.status)).length + incoming.length
+      if (liveAfter > MAX_ADSETS_PER_CAMPAIGN) {
+        throw new LaunchRuleError(
+          `${campaignName} would have ${liveAfter} ad sets — a CBO holds a maximum of ${MAX_ADSETS_PER_CAMPAIGN}.`,
+        )
+      }
+
+      const toAdd: Db['adsets'] =
+        incoming.length > 0
+          ? incoming.map((a) => ({
+              id: nextId('as'),
+              campaignId,
+              name: a.name,
+              conceptType: a.conceptType,
+              conceptLabel: a.conceptLabel,
+              launchedAt: a.launchedAt,
+              status: 'ACTIVE' as const,
+            }))
+          : current.length === 0
+            ? [
+                {
+                  id: nextId('as'),
+                  campaignId,
+                  name: PLACEHOLDER_ADSET_NAME,
+                  conceptType: 'CUSTOM' as const,
+                  conceptLabel: PLACEHOLDER_ADSET_NAME,
+                  status: 'ACTIVE' as const,
+                },
+              ]
+            : []
+      db.adsets = [...adsets, ...toAdd]
+
+      log(db, action.actorId, 'campaign', campaignId, 'CAMPAIGN_IMPORTED', {
+        campaignName,
+        adsets: toAdd.map((a) => a.name),
+        created: !action.campaignId,
       })
       return db
     }
@@ -1311,6 +1433,14 @@ export function useActions() {
         run({ type: 'SETUP_SET_BLOCKER', taskId, reason, actorId: currentUser.id }),
       setInstructions: (taskId: string, instructions?: string) =>
         run({ type: 'SETUP_SET_INSTRUCTIONS', taskId, instructions, actorId: currentUser.id }),
+      importCampaign: (input: {
+        adAccountId: string
+        campaignId?: string
+        name?: string
+        productName?: string
+        campaignType?: CampaignType
+        adsets: ImportedAdsetInput[]
+      }) => run({ type: 'CAMPAIGN_IMPORT', ...input, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

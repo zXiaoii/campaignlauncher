@@ -50,6 +50,7 @@ import { now } from '../clock'
 import { CAMPAIGN_TYPES } from '../naming'
 import { planNextBatch, useActions, useStore } from '../store'
 import type { AdAccount, Adset, Campaign, CampaignType } from '../types'
+import { ImportDrawer } from './ImportDrawer'
 import type { LaunchIntent } from './LaunchDrawer'
 
 type View = 'grid' | 'bento' | 'table'
@@ -120,6 +121,7 @@ export function Workspace({
   // "Next batch" — one click, no form. Result line shows what was created.
   const { nextBatch } = useActions()
   const [result, setResult] = useState<string | null>(null)
+  const [importing, setImporting] = useState(false)
   const canNext = !readOnly && Boolean(onLaunch)
 
   const country = db.countries.find((c) => c.id === countryId) ?? db.countries[0]
@@ -202,7 +204,15 @@ export function Workspace({
 
   return (
     <>
-      <PageHead title={title} sub={sub} />
+      <PageHead title={title} sub={sub}>
+        {canNext && (
+          <Button onClick={() => setImporting(true)} title="Bring a CBO that already runs in Meta into the workspace — no reset.">
+            ↓ Add existing CBO
+          </Button>
+        )}
+      </PageHead>
+
+      {importing && <ImportDrawer countryId={country.id} onClose={() => setImporting(false)} />}
 
       {result && (
         <Callout className="border-l-success">

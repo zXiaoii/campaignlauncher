@@ -174,6 +174,21 @@ Blockers are orthogonal to status (a Ready task can be blocked), show as a ⛔ c
 every setup view, count in Mark's and the Ad Accounts overview, have their own tab in
 the setup queue, and clear automatically on completion.
 
+## Add existing CBO — importing without a reset
+
+The seed is for day one. Once the app is live, **↓ Add existing CBO** (Workspace header,
+Charles only) brings a campaign that already runs in Meta into the workspace without
+touching anything else: pick the country and ad account, type the campaign name exactly
+as it is in Meta, the product (free text, existing ones suggest) and the type (MAIN by
+default), then paste the ad-set names one per line. Each line is parsed the way the seed
+is: the leading `MM/DD/YY` becomes the launch date at noon, "swipes" / "iterations" /
+"deep" set the framework Next batch copies, anything else is a custom label. Duplicates
+and lines that would push the CBO past four ad sets are flagged before saving. A CBO
+pasted without ad sets gets the `existing ads` placeholder; the same drawer's second mode,
+**Add ad sets to a CBO already here**, replaces that placeholder with the real names
+later. `src/importing.ts` holds the parser; the reducer's `CAMPAIGN_IMPORT` enforces the
+rules.
+
 ## Instructions for setup — typed, in Charles's words
 
 The app never holds the ads themselves; they live in Meta and in Drive. So every launch
