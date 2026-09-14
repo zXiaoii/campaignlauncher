@@ -35,6 +35,8 @@ export type AdsetStatus = 'PLANNED' | 'ACTIVE' | 'STOPPED' | 'KILLED' | 'ARCHIVE
 /** Creative framework. Drives both the brief preset and the ad-set concept label. */
 export type ConceptType =
   | 'SWIPES_PLAYBOOK'
+  /** Pure swipes: recreate the references as they are, no Playbook layer on top. */
+  | 'SWIPES'
   | 'ITERATION'
   | 'DEEP_ITERATION'
   /** Same winning concept, different executions — new hooks, formats or visuals on it. */

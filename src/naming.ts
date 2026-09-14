@@ -18,6 +18,7 @@ export const CAMPAIGN_TYPES: { code: CampaignType; meaning: string }[] = [
 
 export const CONCEPT_LABELS: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'swipes + playbook',
+  SWIPES: 'pure swipes',
   ITERATION: 'iteration',
   DEEP_ITERATION: 'deep iteration',
   VARIATION: 'variation',
@@ -28,6 +29,8 @@ export const CONCEPT_LABELS: Record<ConceptType, string> = {
 export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK:
     'Find/use the supplied swipe references and apply our Playbook concepts. Keep the product/market direction as the priority. Create clear variations rather than tiny cosmetic changes.',
+  SWIPES:
+    'Recreate the supplied swipe references as faithfully as our brand allows: same structure, pacing, hook placement and format. Swap in our product, talent and claims only. No Playbook concepts on top — this batch tests the references themselves.',
   ITERATION:
     'Iterate the winning hooks from the source. Same talent and structure, tighter first three seconds, clear variations rather than cosmetic changes.',
   DEEP_ITERATION:
@@ -39,6 +42,7 @@ export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
 
 export const CONCEPT_NAMES: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
+  SWIPES: 'Pure Swipes',
   ITERATION: 'Iteration',
   DEEP_ITERATION: 'Deep Iteration',
   VARIATION: 'Variation',

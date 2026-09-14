@@ -253,7 +253,7 @@ interface ExistingAdset {
   /** [year, month, day] — the date in the ad-set name. Unset when the name has none. */
   launched?: [number, number, number]
   /** Framework, when the name says so ("iterations" → iteration). Default Swipes + Playbook. */
-  concept?: 'SWIPES_PLAYBOOK' | 'ITERATION' | 'VARIATION' | 'CUSTOM'
+  concept?: 'SWIPES_PLAYBOOK' | 'SWIPES' | 'ITERATION' | 'VARIATION' | 'CUSTOM'
 }
 
 function running(

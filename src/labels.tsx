@@ -65,6 +65,7 @@ export const LAUNCH_MODE_LABEL: Record<LaunchMode, string> = {
 
 export const CONCEPT_TYPE_LABEL: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
+  SWIPES: 'Pure Swipes',
   ITERATION: 'Iteration',
   DEEP_ITERATION: 'Deep Iteration',
   VARIATION: 'Variation',

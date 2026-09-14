@@ -687,7 +687,7 @@ export function LaunchDrawer({
                   if (DEFAULT_DIRECTION[next]) setDirection(DEFAULT_DIRECTION[next])
                 }}
               >
-                {(['SWIPES_PLAYBOOK', 'ITERATION', 'VARIATION', 'DEEP_ITERATION', 'CUSTOM'] as ConceptType[]).map((t) => (
+                {(['SWIPES_PLAYBOOK', 'SWIPES', 'ITERATION', 'VARIATION', 'DEEP_ITERATION', 'CUSTOM'] as ConceptType[]).map((t) => (
                   <option key={t} value={t}>
                     {CONCEPT_TYPE_LABEL[t]}
                     {t === 'SWIPES_PLAYBOOK' ? ' (default)' : ''}
