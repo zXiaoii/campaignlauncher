@@ -58,6 +58,7 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
   const [person, setPerson] = useState(ALL)
   const [status, setStatus] = useState<SetupStatus | typeof ALL>(ALL)
   const [checkFilter, setCheckFilter] = useState<CheckFilter>('ALL')
+  const [countryId, setCountryId] = useState<string>(ALL)
   const [query, setQuery] = useState('')
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
 
@@ -71,8 +72,12 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
     return setupRowsInWindow(db, from, to, today)
   }, [db, mode, win, today])
 
-  // One search box instead of three dropdowns: country, product, account and the
-  // exact names are all just text Mark would type anyway.
+  // Country is a first-class filter (one click per market); the rest of the
+  // dimensions — product, account, exact names — are a single search box.
+  const countryCounts = base.reduce(
+    (m, r) => ({ ...m, [r.account.countryId]: (m[r.account.countryId] ?? 0) + 1 }),
+    {} as Record<string, number>,
+  )
   const rows = base.filter((r) => {
     const t = r.setupTask!
     const checked = Boolean(t.checkedAt)
@@ -86,6 +91,7 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
       .join(' ')
       .toLowerCase()
     return (
+      (countryId === ALL || r.account.countryId === countryId) &&
       (person === ALL || t.completedBy === person) &&
       (status === ALL || t.status === status) &&
       (checkFilter === 'ALL' || (checkFilter === 'CHECKED' ? checked : !checked)) &&
@@ -141,6 +147,15 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
 
       <Toolbar>
         <Segmented
+          ariaLabel="Country"
+          value={countryId}
+          options={[
+            { value: ALL, label: `All (${base.length})` },
+            ...db.countries.map((c) => ({ value: c.id, label: `${c.code} (${countryCounts[c.id] ?? 0})` })),
+          ]}
+          onChange={setCountryId}
+        />
+        <Segmented
           ariaLabel="QA state"
           value={checkFilter}
           options={[
@@ -179,7 +194,14 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
       </Toolbar>
 
       {rows.length === 0 ? (
-        <EmptyState title="No setup records match these filters." hint="Clear a filter or pick another day." />
+        <EmptyState
+          title={
+            countryId !== ALL
+              ? `No setup records for ${db.countries.find((c) => c.id === countryId)?.code ?? 'this market'} here.`
+              : 'No setup records match these filters.'
+          }
+          hint="Clear a filter or pick another day."
+        />
       ) : (
         <TableWrap>
           <thead>

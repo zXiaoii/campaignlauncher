@@ -60,10 +60,15 @@ type Tab = 'OPEN' | 'BLOCKED' | 'DONE' | 'ALL'
 export function SetupTasks() {
   const { db, currentUser } = useStore()
   const [tab, setTab] = useState<Tab>('OPEN')
+  const [countryId, setCountryId] = useState<string>('ALL')
   const [openTaskId, setOpenTaskId] = useState<string | null>(null)
   const today = now()
 
-  const all = setupRows(db)
+  const everything = setupRows(db)
+  const countryCounts = everything
+    .filter((r) => r.setupTask!.status !== 'COMPLETED')
+    .reduce((m, r) => ({ ...m, [r.account.countryId]: (m[r.account.countryId] ?? 0) + 1 }), {} as Record<string, number>)
+  const all = countryId === 'ALL' ? everything : everything.filter((r) => r.account.countryId === countryId)
   const open = all.filter((r) => r.setupTask!.status !== 'COMPLETED')
   const blocked = open.filter((r) => r.setupTask!.blockedReason)
   const done = all.filter((r) => r.setupTask!.status === 'COMPLETED')
@@ -101,6 +106,15 @@ export function SetupTasks() {
           ]}
         />
         <span className="flex-1" />
+        <Segmented
+          ariaLabel="Country"
+          value={countryId}
+          options={[
+            { value: 'ALL', label: 'All markets' },
+            ...db.countries.map((c) => ({ value: c.id, label: `${c.code} (${countryCounts[c.id] ?? 0})` })),
+          ]}
+          onChange={setCountryId}
+        />
         <Segmented
           ariaLabel="Scope"
           value={tab}
