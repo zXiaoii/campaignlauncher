@@ -223,15 +223,27 @@ pasted without ad sets gets the `ad sets not imported yet` placeholder (shown in
 later.
 
 **Paste a Meta export** is the third mode and the fastest for a whole market: in Ads
-Manager, Ad sets tab → Reports → Export table data → CSV (or select the rows and copy the
-table). Drop the file in or paste the text. The parser finds the *Campaign name* and *Ad
-set name* columns by header (casing and order do not matter), de-duplicates ad-level rows,
-and, when an *Ad set delivery* column is present, skips ad sets Meta reports as off,
-inactive, completed or deleted (toggle). Every campaign in the file becomes a card: new
-CBOs get their product guessed from the name (editable), CBOs already in the account
-only receive their missing ad sets, and a campaign whose ad sets are all off is left out
-as killed. Anything that would exceed four ad sets is flagged. One click adds them all,
-atomically. Excel (.xlsx) files are not read — choose CSV in the export dialog.
+Manager, Ad sets tab → Reports → Export table data, as **.xlsx or CSV** (or select the
+rows and copy the table). Drop the file in or paste the text. The parser finds the
+*Campaign name*, *Ad set name* and *Account name* columns by header (casing and order do
+not matter), de-duplicates ad-level rows, and, when an *Ad set delivery* column is
+present, skips ad sets Meta reports as off, inactive, completed or deleted (toggle).
+
+**Many ad accounts in one file.** With an *Account name* column, every CBO is routed to
+the ad account named on its rows, matched against the Ad Accounts directory by display
+name (whitespace- and case-insensitive) and then by the leading `#nnnn` / `nnnnn` number;
+the country and account picked at the top of the drawer are ignored. A name that matches
+nothing gets a picker on its card (or add the account in Ad Accounts first). Without the
+column, everything goes to the account picked at the top.
+
+Every campaign in the file becomes a card: new CBOs get their product guessed from the
+name (editable), CBOs already in that account only receive their missing ad sets, and a
+campaign whose ad sets are all off is left out as killed. Re-importing the same file adds
+nothing — every card reads "Nothing new". One click adds them all, atomically.
+
+`.xlsx` is read in the browser without a library: the workbook's zip entries are inflated
+with the native `DecompressionStream` and the shared-string table and first worksheet are
+parsed with `DOMParser` (`readXlsx` in `src/importing.ts`). Old `.xls` is not supported.
 
 `src/importing.ts` holds the parsers; the reducer's `CAMPAIGN_IMPORT` /
 `CAMPAIGN_IMPORT_MANY` enforce the rules.
