@@ -28,9 +28,9 @@ import {
   Toolbar,
   Tr,
 } from '../components/ui'
-import { BlockedChip, SetupStatusChip } from '../labels'
+import { BlockedChip, CboExistsChip, SetupStatusChip } from '../labels'
 import { addDays, formatTime, isLate } from '../naming'
-import { setupCounters, setupRows, setupRowsInWindow, userName } from '../selectors'
+import { campaignExistsInMeta, setupCounters, setupRows, setupRowsInWindow, userName } from '../selectors'
 import { useActions, useStore } from '../store'
 import type { SetupStatus } from '../types'
 import { SetupTaskDrawer } from './SetupTasks'
@@ -238,7 +238,16 @@ export function SetupOverview({ mode }: { mode: 'overview' | 'history' }) {
                   </Td>
                   <StackedTd primary={r.product.name} secondary={r.countryCode} />
                   <NameTd value={r.account.displayName} />
-                  <NameTd value={r.campaign.name} />
+                  <Td className={cn('whitespace-nowrap')}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="font-mono text-xs tracking-[-0.01em] truncate max-w-[260px]" title={r.campaign.name}>
+                        {r.campaign.name}
+                      </span>
+                      {t.status !== 'COMPLETED' && (
+                        <CboExistsChip exists={campaignExistsInMeta(db, r.campaign.id, r.adset.id)} short />
+                      )}
+                    </span>
+                  </Td>
                   <NameTd value={r.adset.name} />
                   <NameTd value={r.sourceAdset ? `↩ ${r.sourceAdset.name}` : '—'} muted />
                   <Td className="whitespace-nowrap">

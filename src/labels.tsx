@@ -63,6 +63,23 @@ export const LAUNCH_MODE_LABEL: Record<LaunchMode, string> = {
   OWN_BATCH: 'Own Drive batch',
 }
 
+/**
+ * Setup's first question about any task: does the CBO exist in Meta yet? "Create
+ * CBO" means the campaign has to be built before the ad set; "Existing CBO" means
+ * the ad set is added into a campaign that is already running.
+ */
+export function CboExistsChip({ exists, short }: { exists: boolean; short?: boolean }) {
+  return exists ? (
+    <Chip tone="quiet" title="This campaign already runs in Meta — add the ad set into it.">
+      {short ? 'Existing' : 'Existing CBO'}
+    </Chip>
+  ) : (
+    <Chip tone="accent" title="This campaign does not exist in Meta yet — create the CBO first, then the ad set inside it.">
+      {short ? '＋ Create' : '＋ Create CBO'}
+    </Chip>
+  )
+}
+
 export const CONCEPT_TYPE_LABEL: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
   SWIPES: 'Pure Swipes',

@@ -60,6 +60,18 @@ export function campaignsInAccount(db: Db, accountId: string): Campaign[] {
     .sort((a, b) => a.name.localeCompare(b.name))
 }
 
+/**
+ * Does this CBO already exist inside Meta, from the setup person's point of view?
+ * It does if anything in it other than the ad set being set up is live or was live —
+ * an imported ad set, a completed launch, a stopped one. A CBO the app created for a
+ * launch that has not gone live yet exists only here, so setup must create it in
+ * Meta first. Two planned launches into a brand-new CBO both read "create" until
+ * the first completes, then the second flips to "existing" on its own.
+ */
+export function campaignExistsInMeta(db: Db, campaignId: string, excludeAdsetId?: string): boolean {
+  return db.adsets.some((a) => a.campaignId === campaignId && a.id !== excludeAdsetId && a.status !== 'PLANNED')
+}
+
 /** CBOs switched off for good — shown only behind the workspace's Killed filter. */
 export function killedCampaignsInAccount(db: Db, accountId: string): Campaign[] {
   return db.campaigns

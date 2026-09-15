@@ -38,12 +38,13 @@ import {
 import {
   AccountStatusChip,
   BlockedChip,
+  CboExistsChip,
   isAccountProblem,
   LAUNCH_MODE_LABEL,
   SetupStatusChip,
 } from '../labels'
 import { dueLabel, formatLaunchDate, formatTime, isLate } from '../naming'
-import { rowForSetupTask, setupRows, userName } from '../selectors'
+import { campaignExistsInMeta, rowForSetupTask, setupRows, userName } from '../selectors'
 import { useActions, useStore } from '../store'
 import { InstructionsPanel } from './Instructions'
 
@@ -142,6 +143,7 @@ export function SetupTasks() {
               <Th>Product</Th>
               <Th>Ad Account</Th>
               <Th>Campaign</Th>
+              <Th title="Does the CBO already exist in Meta, or does it have to be created first?">CBO</Th>
               <Th>Ad Set</Th>
               <Th>Creative</Th>
               <Th>Instructions</Th>
@@ -172,6 +174,13 @@ export function SetupTasks() {
                   <StackedTd primary={r.product.name} secondary={r.countryCode} />
                   <NameTd value={r.account.displayName} />
                   <NameTd value={r.campaign.name} />
+                  <Td className="whitespace-nowrap">
+                    {t.status === 'COMPLETED' ? (
+                      <span className="text-fg-tertiary">—</span>
+                    ) : (
+                      <CboExistsChip exists={campaignExistsInMeta(db, r.campaign.id, r.adset.id)} short />
+                    )}
+                  </Td>
                   <NameTd value={r.adset.name} />
                   <Td className="whitespace-nowrap text-fg-secondary">{creativeSummary(r)}</Td>
                   <Td
@@ -225,6 +234,7 @@ export function SetupTaskDrawer({
   const waiting = task.status === 'WAITING_FOR_CREATIVE'
   const completed = task.status === 'COMPLETED'
   const driveUrl = row.batch?.driveUrl
+  const cboExists = completed || campaignExistsInMeta(db, row.campaign.id, row.adset.id)
   // Relaunching an ad set imported from Meta: nothing in Drive, the ads are in Meta.
   const duplicateInMeta = !task.creativeRequired && !row.batch && row.sourceAdset
   const creativeLine = driveUrl
@@ -236,7 +246,7 @@ export function SetupTaskDrawer({
   // §10.4 — one plain-text block to paste into Meta notes or a chat.
   const setupBlock = [
     `Ad Account: ${row.account.displayName}`,
-    `Campaign: ${row.campaign.name}`,
+    `Campaign: ${row.campaign.name}${completed ? '' : cboExists ? '  (existing CBO)' : '  (NEW — create this CBO first)'}`,
     `Ad Set: ${row.adset.name}`,
     `Creative: ${driveUrl ?? (duplicateInMeta ? creativeLine : 'pending')}`,
     task.instructions ? `Instructions: ${task.instructions}` : null,
@@ -340,9 +350,27 @@ export function SetupTaskDrawer({
         </Callout>
       )}
 
+      {!completed && (
+        <Callout className={cboExists ? undefined : 'border-l-accent'}>
+          <div className="flex items-center gap-2">
+            <CboExistsChip exists={cboExists} />
+            {cboExists ? (
+              <span>
+                <strong>{row.campaign.name}</strong> already runs in Meta — open it and add the ad set inside.
+              </span>
+            ) : (
+              <span>
+                <strong>{row.campaign.name}</strong> does not exist in Meta yet — create the CBO with this exact
+                name first, then the ad set inside it.
+              </span>
+            )}
+          </div>
+        </Callout>
+      )}
+
       <Section title="Copy into Meta">
         <CopyRow label="Ad account" value={row.account.displayName} />
-        <CopyRow label="Campaign" value={row.campaign.name} />
+        <CopyRow label={completed ? 'Campaign' : cboExists ? 'Campaign (existing)' : 'Campaign (create it)'} value={row.campaign.name} />
         <CopyRow label="Ad set" value={row.adset.name} />
         <CopyRow label={duplicateInMeta ? 'Creative' : 'Creative Drive'} value={creativeLine} href={driveUrl} />
       </Section>
