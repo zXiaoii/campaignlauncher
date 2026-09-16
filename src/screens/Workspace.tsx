@@ -177,6 +177,10 @@ export function Workspace({
       (m, { state }) => ({ ...m, [state]: (m[state] ?? 0) + 1 }),
       {} as Partial<Record<StateFilter, number>>,
     )
+  // Killed CBOs mostly sit on off-boarded accounts, which the other views hide —
+  // count them across the whole market so the filter label is honest before it is on.
+  const marketAccountIds = new Set(db.adAccounts.filter((a) => a.countryId === country.id).map((a) => a.id))
+  stateCounts.KILLED = db.campaigns.filter((c) => c.status === 'KILLED' && marketAccountIds.has(c.adAccountId)).length
   const problemCount = classified
     .filter((a) => isAccountProblem(a.account.status))
     .reduce((n, a) => n + a.campaigns.length, 0)
