@@ -96,23 +96,6 @@ const adsc = (num: string, market: Market, ad: number, tail: string) =>
     { supplierRef: `ADSC | ${MARKET_LABEL[market]} | AD ${ad}`, timezone: TZ[market] },
   )
 
-/**
- * An account Charles named only as "UK | AD n" — supplier and "#nnnn" number not
- * sent. The display name carries no number, so the directory flags it and campaign
- * naming into it is blocked until the number is corrected there. Used for the
- * off-boarded ones, where the number will never matter.
- */
-const unnumbered = (
-  market: Market,
-  ad: number,
-  extra: Partial<Pick<AdAccount, 'status' | 'statusReason' | 'statusChangedAt'>> = {},
-) =>
-  account(`ac_${market.toLowerCase()}_ad${ad}`, `c_${market.toLowerCase()}`, `${MARKET_LABEL[market]} | AD ${ad} - Danny`, undefined, undefined, {
-    supplierRef: `${MARKET_LABEL[market]} | AD ${ad}`,
-    timezone: TZ[market],
-    ...extra,
-  })
-
 const OFFBOARDED_14_SEP = {
   status: 'OFFBOARDED' as const,
   statusReason: 'Off-boarded (Charles, 14 Sep 2026)',
@@ -171,11 +154,11 @@ const AD_ACCOUNTS: AdAccount[] = [
   /* ADSC — UK (from the UK Ads Reporting pivot, 14 Sep 2026) */
   adsc('7965', 'UK', 16, ' - ADSC'),
   adsc('7966', 'UK', 17, ' - ADSC'),
-  /* Off-boarded — named by Charles as "UK | AD n" only, supplier and number not sent. */
-  unnumbered('UK', 13, OFFBOARDED_14_SEP),
-  unnumbered('UK', 14, OFFBOARDED_14_SEP),
-  unnumbered('UK', 15, OFFBOARDED_14_SEP),
-  unnumbered('UK', 18, OFFBOARDED_14_SEP),
+  /* Off-boarded — numbers from the supplier panel Charles pasted on 16 Sep 2026. */
+  { ...adsc('7854', 'UK', 13, ' - ADSC'), ...OFFBOARDED_14_SEP },
+  { ...adsc('7853', 'UK', 14, ' - ADSC'), ...OFFBOARDED_14_SEP },
+  { ...adsc('7852', 'UK', 15, ' - ADSC'), ...OFFBOARDED_14_SEP },
+  { ...adsc('7967', 'UK', 18, ' - ADSC'), ...OFFBOARDED_14_SEP },
 
   /* RHKA — UK */
   rhka('2808', 'UK', 1, '8357'),
@@ -233,6 +216,9 @@ const PRODUCTS: Product[] = [
   { id: 'p_flexivita', name: 'Flexivita', active: false },
   { id: 'p_drycontrol', name: 'DryControl', active: true },
   { id: 'p_affinera', name: 'Affinera', active: true },
+  { id: 'p_lungero', name: 'Lungero', active: true },
+  { id: 'p_milkthistle', name: 'Milk Thistle Liver Detox', active: true },
+  { id: 'p_vitaslim', name: 'VitaSlim', active: true },
 ]
 
 // ---------------------------------------------------------------------------
@@ -443,6 +429,22 @@ running('cm_uk_ozempil_17', 'ac_7966', 'p_ozempil', 'NEW  CBO Ozempil 17', 'NEW'
 ])
 running('cm_uk_revida_17', 'ac_7966', 'p_revida', 'NEW CBO REVIDA | 17', 'NEW', [
   { name: '08/27/26 swipes', launched: [2026, 8, 27] },
+])
+
+// ---- US ------------------------------------------------------------------
+// From the US Ads Reporting pivot (16 Sep 2026), campaign and ad-set rows nested
+// under the account, so nothing is inferred.
+
+/* #5341 - US | AD 17 - Danny [ROAS A] 11244 - PP - RHKA */
+running('cm_us_lungero_17', 'ac_5341', 'p_lungero', 'MAIN CBO Lungero', 'MAIN', [
+  { name: '09/10/26 swipes', launched: [2026, 9, 10] },
+  { name: '09/15/26 swipes', launched: [2026, 9, 15] },
+])
+running('cm_us_milkthistle_17', 'ac_5341', 'p_milkthistle', 'MAIN CBO Milk Thistle Liver Detox', 'MAIN', [
+  { name: '09/15/26 swipes', launched: [2026, 9, 15] },
+])
+running('cm_us_vitaslim_17', 'ac_5341', 'p_vitaslim', 'MAIN CBO VitaSlim', 'MAIN', [
+  { name: '09/15/26 swipes', launched: [2026, 9, 15] },
 ])
 
 export function createSeedDb(): Db {

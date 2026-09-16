@@ -280,6 +280,75 @@ export function matchAccount<T extends { displayName: string; adAccountNumber: s
   return num ? accounts.find((a) => a.adAccountNumber === num) : undefined
 }
 
+/**
+ * Best guess at where a brand-new account belongs, from how suppliers name them:
+ * "#7966 - UK | AD 17 - Danny - ADSC" carries the market and the supplier;
+ * "50643 reliore [GO DGTL]" carries the store, which an existing account of the
+ * same store pins to a market.
+ */
+export function guessAccountDetails<
+  C extends { id: string; code: string; name: string },
+  A extends { countryId: string; store?: string; supplier?: string },
+>(displayName: string, countries: C[], existing: A[]): { countryId?: string; supplier?: string; store?: string } {
+  const name = displayName.trim()
+  const upper = name.toUpperCase()
+  const supplier = upper.includes('GO DGTL')
+    ? 'GO DGTL'
+    : /\bADSC\b/.test(upper)
+      ? 'ADSC'
+      : /\bRHKA\b/.test(upper)
+        ? 'RHKA'
+        : undefined
+
+  // "… - AUS | AD 3 - …" — the market label the ADSC/RHKA panels use.
+  const marketLabel = name.match(/-\s*([A-Za-z ]+?)\s*\|/)?.[1]?.trim().toUpperCase()
+  const byLabel = marketLabel
+    ? countries.find(
+        (c) =>
+          c.code.toUpperCase() === marketLabel ||
+          c.name.toUpperCase() === marketLabel ||
+          (marketLabel === 'AUS' && c.code.toUpperCase() === 'AUSTRALIA') ||
+          (marketLabel === 'AUS' && c.name.toUpperCase() === 'AUSTRALIA'),
+      )
+    : undefined
+
+  // "50643 reliore [GO DGTL]" — the store word before the bracket.
+  const storeWord = name.match(/^\d+\s+([A-Za-z]+)/)?.[1]
+  const sameStore = storeWord
+    ? existing.find((a) => a.store && a.store.toLowerCase() === storeWord.toLowerCase())
+    : undefined
+
+  return {
+    countryId: byLabel?.id ?? sameStore?.countryId,
+    supplier,
+    store: sameStore?.store ?? (supplier === 'GO DGTL' && storeWord ? storeWord[0].toUpperCase() + storeWord.slice(1) : undefined),
+  }
+}
+
+/**
+ * A supplier panel pasted as text — one account per block: the display name, then
+ * an ID line, a create date, a status, a balance and an IANA timezone. Only the
+ * name is needed; the timezone rides along when it follows the name.
+ */
+export interface PastedAccount {
+  displayName: string
+  timezone?: string
+}
+
+export function parseAccountList(text: string): PastedAccount[] {
+  const out: PastedAccount[] = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    if (/^#?\d+\s*-\s*\S/.test(line) || /^\d{4,}\s+\S+.*\[GO DGTL\]/i.test(line)) {
+      out.push({ displayName: line })
+    } else if (/^[A-Z][A-Za-z_]+\/[A-Za-z_]+$/.test(line) && out.length) {
+      out[out.length - 1].timezone = out[out.length - 1].timezone ?? line
+    }
+  }
+  return out
+}
+
 /** Throws with a plain-English reason when the required columns are missing. */
 export function metaExportFromTable(table: string[][]): MetaExport {
   if (table.length < 2) throw new Error('Nothing to read — paste the table or choose the exported file.')

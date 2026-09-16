@@ -136,7 +136,10 @@ export interface ImportedAdsetInput {
 }
 
 export interface CampaignImportInput {
+  /** Empty when `newAccount` is given — the account is created first. */
   adAccountId: string
+  /** An ad account named in the export that is not in the directory yet. */
+  newAccount?: { displayName: string; countryId: string; supplier?: string; store?: string }
   /** Add to this CBO; when unset a new campaign is created from the fields below. */
   campaignId?: string
   name?: string
@@ -273,6 +276,19 @@ type Action =
   | { type: 'CAMPAIGN_SET_HOLD'; campaignId: string; onHold: boolean; actorId: string }
   /** Switched off in Meta for good (or brought back). Live ad sets follow the campaign. */
   | { type: 'CAMPAIGN_SET_KILLED'; campaignId: string; killed: boolean; actorId: string }
+  /**
+   * The restriction wave: several ad accounts gone at once, everything relaunched
+   * elsewhere. Off-boards the accounts, kills their CBOs, cancels launches still in
+   * flight on them. Deletes nothing that ever went live — history stays intact.
+   */
+  | {
+      type: 'ACCOUNTS_RETIRE'
+      accountIds: string[]
+      reason?: string
+      /** Banned accounts the directory never had — recorded straight away as off-boarded. */
+      alsoRecord?: { displayName: string; countryId: string; supplier?: string; timezone?: string }[]
+      actorId: string
+    }
   | { type: 'SETUP_COMPLETE'; taskId: string; actorId: string }
   | {
       type: 'ACCOUNT_CREATE'
@@ -714,7 +730,34 @@ function reducer(state: Db, action: Action): Db {
     // -----------------------------------------------------------------------
     case 'CAMPAIGN_IMPORT': {
       assertCanWrite(role, 'createLaunch')
-      const acc = adAccount(state, action.adAccountId)
+      let acc = adAccount(state, action.adAccountId)
+      if (!acc && action.newAccount) {
+        // The export names an account the directory has not met yet (a fresh one
+        // after a restriction, say). Create it on the way in — or reuse it if an
+        // earlier item in the same batch already did.
+        const displayName = action.newAccount.displayName.trim()
+        acc = state.adAccounts.find((a) => a.displayName === displayName)
+        if (!acc) {
+          if (!state.countries.some((c) => c.id === action.newAccount!.countryId)) {
+            throw new LaunchRuleError(`Pick the market for the new account "${displayName}".`)
+          }
+          acc = {
+            id: nextId('ac'),
+            countryId: action.newAccount.countryId,
+            displayName,
+            adAccountNumber: extractAdAccountNumber(displayName),
+            supplier: action.newAccount.supplier?.trim() || undefined,
+            store: action.newAccount.store?.trim() || undefined,
+            status: 'ACTIVE',
+          }
+          db.adAccounts = [...state.adAccounts, acc]
+          log(db, action.actorId, 'ad_account', acc.id, 'ACCOUNT_CREATED', {
+            displayName,
+            adAccountNumber: acc.adAccountNumber,
+            fromImport: true,
+          })
+        }
+      }
       if (!acc) throw new LaunchRuleError('Pick the ad account the CBO runs in.')
 
       let campaignId: string
@@ -812,6 +855,88 @@ function reducer(state: Db, action: Action): Db {
       log(db, action.actorId, 'campaign', cm.id, action.onHold ? 'CAMPAIGN_HELD' : 'CAMPAIGN_RESUMED', {
         campaignName: cm.name,
       })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'ACCOUNTS_RETIRE': {
+      assertCanWrite(role, 'accountHealth')
+      const ids = new Set(action.accountIds)
+      const accounts = state.adAccounts.filter((a) => ids.has(a.id))
+      const record = (action.alsoRecord ?? []).filter(
+        (r) => r.displayName.trim() && !state.adAccounts.some((a) => a.displayName === r.displayName.trim()),
+      )
+      if (accounts.length === 0 && record.length === 0) throw new LaunchRuleError('Pick at least one ad account to retire.')
+      const stamp = now().toISOString()
+      const reason = action.reason?.trim() || 'Retired — account restricted, relaunched elsewhere'
+
+      const campaignsOn = state.campaigns.filter((c) => ids.has(c.adAccountId) && c.status === 'ACTIVE')
+      const campaignIds = new Set(campaignsOn.map((c) => c.id))
+      // Launches still in flight on these accounts were never going to happen now:
+      // the planned ad set, launch and tasks go. Anything that went live stays.
+      const plannedIds = new Set(
+        state.adsets.filter((a) => campaignIds.has(a.campaignId) && a.status === 'PLANNED').map((a) => a.id),
+      )
+      const cancelledLaunchIds = new Set(
+        state.launches.filter((l) => plannedIds.has(l.destinationAdsetId)).map((l) => l.id),
+      )
+
+      db.adAccounts = [
+        ...state.adAccounts.map((a) =>
+          ids.has(a.id)
+            ? { ...a, status: 'OFFBOARDED' as const, statusReason: reason, statusChangedBy: action.actorId, statusChangedAt: stamp }
+            : a,
+        ),
+        ...record.map((r) => {
+          if (!state.countries.some((c) => c.id === r.countryId)) {
+            throw new LaunchRuleError(`Pick the market for "${r.displayName}".`)
+          }
+          const displayName = r.displayName.trim()
+          return {
+            id: nextId('ac'),
+            countryId: r.countryId,
+            displayName,
+            adAccountNumber: extractAdAccountNumber(displayName),
+            supplier: r.supplier,
+            timezone: r.timezone,
+            status: 'OFFBOARDED' as const,
+            statusReason: reason,
+            statusChangedBy: action.actorId,
+            statusChangedAt: stamp,
+          }
+        }),
+      ]
+      db.campaigns = state.campaigns.map((c) =>
+        campaignIds.has(c.id) ? { ...c, status: 'KILLED', killedAt: stamp, killedBy: action.actorId, onHold: undefined } : c,
+      )
+      db.adsets = state.adsets
+        .filter((a) => !plannedIds.has(a.id))
+        .map((a) =>
+          campaignIds.has(a.campaignId) && (a.status === 'ACTIVE' || a.status === 'STOPPED') ? { ...a, status: 'KILLED' } : a,
+        )
+      db.launches = state.launches.filter((l) => !cancelledLaunchIds.has(l.id))
+      db.creativeTasks = state.creativeTasks.filter((t) => !cancelledLaunchIds.has(t.launchId))
+      db.setupTasks = state.setupTasks.filter((t) => !cancelledLaunchIds.has(t.launchId))
+      db.followups = state.followups.filter((f) => !plannedIds.has(f.sourceAdsetId))
+
+      for (const a of accounts) {
+        log(db, action.actorId, 'ad_account', a.id, 'ACCOUNT_RETIRED', {
+          displayName: a.displayName,
+          reason,
+          campaigns: campaignsOn.filter((c) => c.adAccountId === a.id).map((c) => c.name),
+        })
+      }
+      for (const r of record) {
+        const created = db.adAccounts.find((a) => a.displayName === r.displayName.trim())
+        if (created) {
+          log(db, action.actorId, 'ad_account', created.id, 'ACCOUNT_RETIRED', {
+            displayName: created.displayName,
+            reason,
+            campaigns: [],
+            recordedOnly: true,
+          })
+        }
+      }
       return db
     }
 
@@ -1507,6 +1632,11 @@ export function useActions() {
         run({ type: 'CAMPAIGN_SET_HOLD', campaignId, onHold, actorId: currentUser.id }),
       setCampaignKilled: (campaignId: string, killed: boolean) =>
         run({ type: 'CAMPAIGN_SET_KILLED', campaignId, killed, actorId: currentUser.id }),
+      retireAccounts: (
+        accountIds: string[],
+        reason?: string,
+        alsoRecord?: { displayName: string; countryId: string; supplier?: string; timezone?: string }[],
+      ) => run({ type: 'ACCOUNTS_RETIRE', accountIds, reason, alsoRecord, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

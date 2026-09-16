@@ -56,6 +56,7 @@ const KIND_OF: Record<string, ActivityKind> = {
   SETUP_QA_UNCHECKED: 'qa',
   ACCOUNT_CREATED: 'account',
   ACCOUNT_STATUS_SET: 'account',
+  ACCOUNT_RETIRED: 'account',
   ACCOUNT_NUMBER_SET: 'account',
   USER_CREATED: 'team',
   USER_DEACTIVATED: 'team',
@@ -223,8 +224,17 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       break
     }
     case 'ACCOUNT_CREATED':
-      text = `Added ad account ${str(m.displayName) ?? ''}`
+      text = m.fromImport
+        ? `Added ad account ${str(m.displayName) ?? ''} from a Meta export`
+        : `Added ad account ${str(m.displayName) ?? ''}`
       break
+    case 'ACCOUNT_RETIRED': {
+      const n = Array.isArray(m.campaigns) ? m.campaigns.length : 0
+      text = `Retired ${str(m.displayName) ?? 'an account'} — off-boarded, ${n} ${n === 1 ? 'CBO' : 'CBOs'} killed${
+        str(m.reason) ? ` — ${str(m.reason)}` : ''
+      }`
+      break
+    }
     case 'ACCOUNT_STATUS_SET': {
       const acc = adAccount(db, l.entityId)
       const status = (str(m.status) ?? '').toLowerCase().replace('_', ' ')

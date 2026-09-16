@@ -199,6 +199,23 @@ that doubles as a day picker; and the in-flight list. Everything is derived from
 activity log and the records the app already keeps (`src/activity.ts` turns every log
 row into a sentence), so it needs no extra data entry and stays read-only.
 
+## Retiring accounts — the restriction wave
+
+When Meta bans a batch of ad accounts and everything is relaunched elsewhere, **⊘ Retire
+accounts…** in Ad Accounts (Charles only) does the whole clean-up in one atomic step
+without deleting history. Paste the supplier panel's banned list straight in: every name
+that matches an account in the directory (by name, then by number) is ticked; names the
+directory never had can be recorded as off-boarded in the market their name says, so the
+book shows what Meta shows. Or tick accounts by hand, per market or across all of them.
+On confirm: the accounts become **Off-boarded** with the reason, every CBO on them becomes
+**Killed** (visible behind the workspace's Killed filter, revivable), their live ad sets
+move to the Library as killed, and launches still planned on them are cancelled. Every
+launch that went live, who completed it, blockers, QA checks and the activity log stay
+untouched — Danny's dashboard and Launches read exactly as before. The new accounts and
+CBOs then come in through **Add existing CBO → Paste a Meta export**, which creates
+unknown ad accounts on the way in (market and supplier guessed from the name, editable
+per card) and infers NEW / SWE / REL / DIT from a name's leading code.
+
 ## Killed CBOs
 
 **☠ Mark as killed** in the card menu (Charles only, confirm dialog) is for a CBO

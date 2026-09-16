@@ -36,6 +36,7 @@ import {
   PriorityChip,
   SetupStatusChip,
 } from '../labels'
+import { guessAccountDetails, matchAccount, parseAccountList, type PastedAccount } from '../importing'
 import { extractAdAccountNumber, formatTime, MAX_ADSETS_PER_CAMPAIGN } from '../naming'
 import { accountOpenRows, accountSummaries, userName, type AccountSummary } from '../selectors'
 import { useActions, useStore } from '../store'
@@ -62,6 +63,7 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
   const [tasksFor, setTasksFor] = useState<string | null>(null)
   const [statusFor, setStatusFor] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [retiring, setRetiring] = useState(false)
 
   const canAdd = currentUser.role === 'MEDIA_BUYER'
   // Charles plans on accounts; setup is the first to find out one is broken.
@@ -134,6 +136,15 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
             onChange={setCategory}
           />
           {canAdd && (
+            <Button
+              variant="danger"
+              onClick={() => setRetiring(true)}
+              title="Several accounts gone at once (a restriction wave): off-board them and kill their CBOs in one step. History stays."
+            >
+              ⊘ Retire accounts…
+            </Button>
+          )}
+          {canAdd && (
             <Button variant="primary" onClick={() => setAdding(true)}>
               + Add account
             </Button>
@@ -201,7 +212,7 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
         )}
         <span className="flex-1" />
         <span className="text-xs text-fg-secondary whitespace-nowrap">
-          {shown.length} of {all.length}
+          {shown.length} of {category === 'OFFBOARDED' ? offboarded.length : all.length}
         </span>
       </div>
 
@@ -249,6 +260,7 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
       )}
 
       {adding && <AddAccountDrawer onClose={() => setAdding(false)} />}
+      {retiring && <RetireAccountsDrawer initialCountryId={countryId} onClose={() => setRetiring(false)} />}
     </>
   )
 }
@@ -569,6 +581,260 @@ function AccountTasksDrawer({
             </button>
           ))}
         </div>
+      )}
+    </Drawer>
+  )
+}
+
+/**
+ * The restriction wave, in one step. Charles ticks the accounts that are gone;
+ * they become off-boarded, every CBO on them is killed, and anything still in
+ * flight on them is cancelled. Nothing that ever went live is deleted — launches,
+ * completions, blockers and the activity log all stay for Danny's history. The
+ * fresh accounts and CBOs then come in through "Add existing CBO" on top.
+ */
+function RetireAccountsDrawer({ initialCountryId, onClose }: { initialCountryId: string; onClose: () => void }) {
+  const { db, error, clearError } = useStore()
+  const { retireAccounts } = useActions()
+  const { show } = useToast()
+  const [countryId, setCountryId] = useState(initialCountryId)
+  const [reason, setReason] = useState('Banned by Meta — relaunched on a new account')
+  const [pasted, setPasted] = useState('')
+  const [recordUnknown, setRecordUnknown] = useState(true)
+  const inPlay = accountSummaries(db).filter((s) => !isAccountOffboarded(s.account.status))
+  const summaries = inPlay.filter((s) => countryId === 'ALL' || s.account.countryId === countryId)
+  // Problem accounts are the obvious candidates, so they start ticked.
+  const [picked, setPicked] = useState<string[]>(() =>
+    inPlay.filter((s) => isAccountProblem(s.account.status)).map((s) => s.account.id),
+  )
+  const chosen = inPlay.filter((s) => picked.includes(s.account.id))
+
+  // The pasted supplier panel: every name that matches an account in play gets
+  // ticked; names the directory has never met can be recorded as off-boarded so the
+  // book shows what Meta shows.
+  const pastedAccounts = parseAccountList(pasted)
+  const pastedMatched = pastedAccounts
+    .map((p) => ({ p, acc: matchAccount(p.displayName, db.adAccounts) }))
+    .filter((x): x is { p: PastedAccount; acc: NonNullable<typeof x.acc> } => Boolean(x.acc))
+  const pastedAlreadyOff = pastedMatched.filter((x) => isAccountOffboarded(x.acc.status)).length
+  const pastedUnknown = pastedAccounts
+    .filter((p) => !matchAccount(p.displayName, db.adAccounts))
+    .map((p) => ({ ...p, ...guessAccountDetails(p.displayName, db.countries, db.adAccounts) }))
+  const unknownPlaced = pastedUnknown.filter((u) => u.countryId)
+  const unknownUnplaced = pastedUnknown.filter((u) => !u.countryId)
+  const applyPaste = (text: string) => {
+    setPasted(text)
+    const ids = parseAccountList(text)
+      .map((p) => matchAccount(p.displayName, db.adAccounts))
+      .filter((a): a is NonNullable<typeof a> => Boolean(a) && !isAccountOffboarded(a!.status))
+      .map((a) => a.id)
+    if (ids.length) setPicked((prev) => [...new Set([...prev, ...ids])])
+  }
+  const cboCount = chosen.reduce((n, s) => n + s.campaigns.length, 0)
+  const inFlight = chosen.reduce(
+    (n, s) => n + s.campaigns.reduce((m, c) => m + db.adsets.filter((a) => a.campaignId === c.campaign.id && a.status === 'PLANNED').length, 0),
+    0,
+  )
+  const liveSets = chosen.reduce(
+    (n, s) =>
+      n +
+      s.campaigns.reduce(
+        (m, c) => m + db.adsets.filter((a) => a.campaignId === c.campaign.id && (a.status === 'ACTIVE' || a.status === 'STOPPED')).length,
+        0,
+      ),
+    0,
+  )
+  const recording = recordUnknown ? unknownPlaced : []
+  const total = chosen.length + recording.length
+  const marketsHit = [...new Set(chosen.map((s) => s.countryCode))].join(', ')
+
+  return (
+    <Drawer
+      wide
+      title="Retire ad accounts"
+      subtitle="Off-board the accounts that are gone and kill their CBOs in one step. Everything that ever went live stays in history."
+      onClose={onClose}
+      footer={
+        <>
+          <div className="min-w-0 text-xs text-fg-secondary">
+            {chosen.length} {chosen.length === 1 ? 'account' : 'accounts'} → off-boarded
+            {recording.length > 0 && ` (+${recording.length} recorded)`} · {cboCount} {cboCount === 1 ? 'CBO' : 'CBOs'} → killed ·{' '}
+            {liveSets} live ad {liveSets === 1 ? 'set' : 'sets'} → killed · {inFlight} planned {inFlight === 1 ? 'launch' : 'launches'} → cancelled
+          </div>
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="danger"
+            disabled={total === 0}
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Retire ${chosen.length} ${chosen.length === 1 ? 'account' : 'accounts'}${marketsHit ? ` (${marketsHit})` : ''}? ${cboCount} ${cboCount === 1 ? 'CBO' : 'CBOs'} will be marked killed and ${inFlight} planned ${inFlight === 1 ? 'launch' : 'launches'} cancelled.${
+                    recording.length ? ` ${recording.length} banned ${recording.length === 1 ? 'account' : 'accounts'} the directory never had will be recorded as off-boarded.` : ''
+                  } Launch history is kept.`,
+                )
+              ) {
+                return
+              }
+              if (
+                retireAccounts(
+                  picked,
+                  reason,
+                  recording.map((u) => ({ displayName: u.displayName, countryId: u.countryId!, supplier: u.supplier, timezone: u.timezone })),
+                )
+              ) {
+                show({
+                  tone: 'default',
+                  kind: 'Retired',
+                  title: `${total} ${total === 1 ? 'account' : 'accounts'}${marketsHit ? ` · ${marketsHit}` : ''}`,
+                  body: `${cboCount} ${cboCount === 1 ? 'CBO' : 'CBOs'} killed, ${inFlight} in-flight ${inFlight === 1 ? 'launch' : 'launches'} cancelled. Now import the new accounts with Add existing CBO.`,
+                  ms: 10000,
+                })
+                onClose()
+              }
+            }}
+          >
+            ⊘ Retire {total || ''}
+          </Button>
+        </>
+      }
+    >
+      {error && (
+        <Callout tone="danger">
+          {error}{' '}
+          <Button variant="ghost" size="sm" onClick={clearError}>
+            Dismiss
+          </Button>
+        </Callout>
+      )}
+
+      <Callout>
+        <strong>What stays:</strong> every launch that went live, who completed it and when, blockers, QA checks,
+        the activity log — Danny&apos;s dashboard and Launches keep reading exactly as before.{' '}
+        <strong>What changes:</strong> the accounts move to Off-boarded, their CBOs to Killed (visible behind the
+        Killed filter), their ad sets to the Library as killed. Planned launches on them are cancelled, since they
+        will be relaunched elsewhere.
+      </Callout>
+
+      <Section title="Paste the banned list" trailing={pastedAccounts.length > 0 ? <Chip tone="accent">{pastedAccounts.length} names</Chip> : undefined}>
+        <Field
+          label="Straight from the supplier panel"
+          hint="One account per block — name, ID, date, status, balance, timezone — exactly as it copies. Every name that matches an account here gets ticked."
+        >
+          <textarea
+            className={cn(textareaClass, 'font-mono text-xs min-h-24')}
+            value={pasted}
+            placeholder={'#7966 - UK | AD 17 - Danny - ADSC\nID: 772747162195771\nbanned\nEurope/London'}
+            onChange={(e) => applyPaste(e.target.value)}
+          />
+        </Field>
+        {pastedAccounts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Chip tone="danger">{pastedMatched.length - pastedAlreadyOff} to retire</Chip>
+            {pastedAlreadyOff > 0 && <Chip tone="quiet">{pastedAlreadyOff} already off-boarded</Chip>}
+            {pastedUnknown.length > 0 && <Chip tone="warn">{pastedUnknown.length} not in the directory</Chip>}
+          </div>
+        )}
+        {pastedUnknown.length > 0 && (
+          <div className="mt-3 p-3 border border-line rounded-lg bg-surface">
+            <label className="flex items-start gap-2 text-[13px] cursor-pointer">
+              <input type="checkbox" className="mt-0.5" checked={recordUnknown} onChange={(e) => setRecordUnknown(e.target.checked)} />
+              <span>
+                Record the {pastedUnknown.length} banned {pastedUnknown.length === 1 ? 'account' : 'accounts'} the directory never had as
+                off-boarded, in the market their names say
+                {unknownUnplaced.length > 0 && (
+                  <>
+                    {' '}
+                    — <strong>{unknownUnplaced.length} cannot be placed</strong> from the name and will be skipped
+                  </>
+                )}
+                .
+              </span>
+            </label>
+            {recordUnknown && (
+              <Block className="mt-2 max-h-40 overflow-auto">
+                {pastedUnknown
+                  .map((u) => `${u.countryId ? (db.countries.find((c) => c.id === u.countryId)?.code ?? '?').padEnd(9) : 'SKIP     '} ${u.displayName}`)
+                  .join('\n')}
+              </Block>
+            )}
+          </div>
+        )}
+      </Section>
+
+      <Section
+        title="Or tick them"
+        trailing={
+          <span className="flex gap-1.5">
+            <Button size="sm" variant="ghost" onClick={() => setPicked(summaries.map((s) => s.account.id))}>
+              All
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPicked(summaries.filter((s) => s.campaigns.length > 0).map((s) => s.account.id))}>
+              With CBOs
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setPicked([])}>
+              None
+            </Button>
+          </span>
+        }
+      >
+        <div className="mb-2.5">
+          <Segmented
+            ariaLabel="Market"
+            value={countryId}
+            options={[{ value: 'ALL', label: `All (${inPlay.length})` }, ...db.countries.map((c) => ({ value: c.id, label: `${c.code} (${inPlay.filter((s) => s.account.countryId === c.id).length})` }))]}
+            onChange={setCountryId}
+          />
+        </div>
+        {summaries.length === 0 ? (
+          <p className="m-0 text-fg-secondary">No accounts in play in this market.</p>
+        ) : (
+          <div className="border border-line rounded-lg overflow-hidden max-h-[360px] overflow-y-auto">
+            {summaries.map((s) => {
+              const on = picked.includes(s.account.id)
+              return (
+                <label
+                  key={s.account.id}
+                  className={cn(
+                    'flex items-center gap-2.5 px-3 py-2 border-b border-line last:border-b-0 cursor-pointer transition-colors hover:bg-surface-hover',
+                    on && 'bg-danger-bg/30',
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={on}
+                    onChange={(e) => setPicked((p) => (e.target.checked ? [...p, s.account.id] : p.filter((id) => id !== s.account.id)))}
+                  />
+                  <span className={cn(mono, 'min-w-0 flex-1 truncate')} title={s.account.displayName}>
+                    {s.account.displayName}
+                  </span>
+                  <span className="text-xs text-fg-tertiary">{s.countryCode}</span>
+                  <AccountStatusChip status={s.account.status} />
+                  <span className="text-xs text-fg-secondary whitespace-nowrap">
+                    {s.campaigns.length} {s.campaigns.length === 1 ? 'CBO' : 'CBOs'}
+                  </span>
+                </label>
+              )
+            })}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Reason">
+        <Field label="Written on every retired account" hint="Setup and Danny see this on the account and in the activity feed.">
+          <textarea className={textareaClass} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+      </Section>
+
+      {chosen.length > 0 && (
+        <Section title="Review">
+          <Block>
+            {[
+              ...chosen.map((s) => `ACCOUNT   ${s.account.displayName}   → off-boarded`),
+              ...chosen.flatMap((s) => s.campaigns.map((c) => `CBO       ${c.campaign.name}   → killed`)),
+            ].join('\n')}
+          </Block>
+        </Section>
       )}
     </Drawer>
   )
