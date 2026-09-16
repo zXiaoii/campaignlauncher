@@ -134,7 +134,14 @@ export function Workspace({
   const canNext = !readOnly && Boolean(onLaunch)
 
   const country = db.countries.find((c) => c.id === countryId) ?? db.countries[0]
-  const accounts = accountsInCountry(db, country.id)
+  // Off-boarded accounts stay out of the workspace — except behind the Killed
+  // filter, where the CBOs that went down with them are exactly what is wanted.
+  const accounts =
+    stateFilter === 'KILLED'
+      ? db.adAccounts
+          .filter((a) => a.countryId === country.id)
+          .sort((a, b) => a.adAccountNumber.localeCompare(b.adAccountNumber))
+      : accountsInCountry(db, country.id)
   const q = query.trim().toLowerCase()
   const at = now()
 

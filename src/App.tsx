@@ -8,6 +8,7 @@ import { StoreProvider, useStore } from './store'
 import { useTheme } from './theme'
 import { AdAccounts } from './screens/AdAccounts'
 import { AdsetDrawer } from './screens/AdsetDrawer'
+import { CleanupBanner } from './screens/CleanupBanner'
 import { CreativeTasks } from './screens/CreativeTasks'
 import { Dashboard } from './screens/Dashboard'
 import { DayView } from './screens/DayView'
@@ -132,6 +133,7 @@ function Shell() {
       </header>
 
       <main className="flex-1 w-full max-w-[1440px] min-w-0 mx-auto px-4 pt-4 pb-10 max-[900px]:px-3">
+        {isCharles && <CleanupBanner />}
         {active === 'workspace' && (
           <Workspace
             title="Workspace"

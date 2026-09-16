@@ -216,6 +216,15 @@ CBOs then come in through **Add existing CBO → Paste a Meta export**, which cr
 unknown ad accounts on the way in (market and supplier guessed from the name, editable
 per card) and infers NEW / SWE / REL / DIT from a name's leading code.
 
+**Prepared clean-up (16 Sep 2026).** The banned list and the new UK + US book are also
+bundled in code (`src/data/restrictionWave.ts`). Charles sees a banner above the
+workspace that spells out, against the live database, exactly what one click will do —
+retire n accounts, kill n CBOs, import n CBOs — with the full lists behind *Show details*.
+**Apply now** runs the retire and the import as one write and logs `MIGRATION_APPLIED`,
+after which the banner is gone for good; a second click is refused. No Reset data
+anywhere, and the seed is untouched, so the day-one book stays available for a fresh
+database.
+
 ## Killed CBOs
 
 **☠ Mark as killed** in the card menu (Charles only, confirm dialog) is for a CBO

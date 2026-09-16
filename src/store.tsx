@@ -19,7 +19,9 @@ import {
 import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
-import { isPlaceholderAdset, PLACEHOLDER_ADSET_NAME } from './importing'
+import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './data/restrictionWave'
+import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME } from './importing'
+import { groupsToImportItems, planExport } from './importPlan'
 import { SignIn } from './screens/SignIn'
 import {
   buildAdsetName,
@@ -326,6 +328,12 @@ type Action =
   | { type: 'FOLLOWUP_DISMISS'; sourceAdsetId: string; actorId: string }
   | { type: 'ADSET_ARCHIVE'; adsetId: string; actorId: string }
   | { type: 'ACCOUNT_SET_NUMBER'; accountId: string; number: string; actorId: string }
+  /**
+   * A prepared one-click clean-up (see data/restrictionWave.ts): retire the banned
+   * accounts, then import the new book. Recorded in the activity log so it can only
+   * run once; a second click is refused.
+   */
+  | { type: 'MIGRATION_APPLY'; id: string; actorId: string }
   /** Wholesale replacement, used by "Reset data" after the local DB is reseeded. */
   | { type: 'REPLACE'; db: Db }
 
@@ -476,6 +484,59 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
   }
 }
 
+// ---------------------------------------------------------------------------
+// Prepared clean-ups
+
+export function migrationApplied(db: Db, id: string): boolean {
+  return db.activityLogs.some((l) => l.eventType === 'MIGRATION_APPLIED' && l.entityId === id)
+}
+
+export interface MigrationPlan {
+  reason: string
+  /** Accounts in the directory and still in play that the banned list names. */
+  retireIds: string[]
+  /** Banned accounts the directory never had, placed by market from their names. */
+  record: { displayName: string; countryId: string; supplier?: string; timezone?: string }[]
+  /** Banned names that could not be placed in a market (left alone). */
+  unplaced: string[]
+  importItems: CampaignImportInput[]
+  /** Groups the import will skip and why — shown in the banner so nothing is silent. */
+  skipped: { campaignName: string; why: string }[]
+}
+
+/** Computed against the live database at click time, so it is always current. */
+export function planMigration(db: Db, id: string): MigrationPlan {
+  if (id !== RESTRICTION_WAVE_ID) throw new LaunchRuleError('Unknown clean-up.')
+  const retireIds: string[] = []
+  const record: MigrationPlan['record'] = []
+  const unplaced: string[] = []
+  for (const p of BANNED_ACCOUNTS) {
+    const acc = matchAccount(p.displayName, db.adAccounts)
+    if (acc) {
+      if (acc.status !== 'OFFBOARDED') retireIds.push(acc.id)
+      continue
+    }
+    const g = guessAccountDetails(p.displayName, db.countries, db.adAccounts)
+    if (g.countryId) record.push({ displayName: p.displayName, countryId: g.countryId, supplier: g.supplier, timezone: p.timezone })
+    else unplaced.push(p.displayName)
+  }
+  // Import is planned against the state *after* retiring: a killed CBO must not be
+  // treated as "already here" for a same-named new one on a fresh account.
+  const afterRetire =
+    retireIds.length > 0 || record.length > 0
+      ? reducer(db, { type: 'ACCOUNTS_RETIRE', accountIds: retireIds, reason: RESTRICTION_WAVE_REASON, alsoRecord: record, actorId: 'u_charles' })
+      : db
+  const groups = planExport(afterRetire, '', NEW_UK_EXPORT, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
+  return {
+    reason: RESTRICTION_WAVE_REASON,
+    retireIds,
+    record,
+    unplaced,
+    importItems: groupsToImportItems(groups),
+    skipped: groups.filter((g) => g.problem).map((g) => ({ campaignName: g.campaignName, why: g.problem! })),
+  }
+}
+
 function reducer(state: Db, action: Action): Db {
   if (action.type === 'REPLACE') return action.db
 
@@ -498,6 +559,33 @@ function reducer(state: Db, action: Action): Db {
     const out: Db = { ...next }
     log(out, action.actorId, 'launch', 'batch', 'NEXT_BATCH', {
       campaigns: action.campaignIds.length,
+    })
+    return out
+  }
+
+  if (action.type === 'MIGRATION_APPLY') {
+    const actor = state.users.find((u) => u.id === action.actorId)
+    assertCanWrite(actor?.role ?? 'CREATIVE', 'accountHealth')
+    if (migrationApplied(state, action.id)) throw new LaunchRuleError('This clean-up has already been applied.')
+    const plan = planMigration(state, action.id)
+    let next = state
+    if (plan.retireIds.length > 0 || plan.record.length > 0) {
+      next = reducer(next, {
+        type: 'ACCOUNTS_RETIRE',
+        accountIds: plan.retireIds,
+        reason: plan.reason,
+        alsoRecord: plan.record,
+        actorId: action.actorId,
+      })
+    }
+    for (const item of plan.importItems) {
+      next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
+    }
+    const out: Db = { ...next }
+    log(out, action.actorId, 'migration', action.id, 'MIGRATION_APPLIED', {
+      retired: plan.retireIds.length,
+      recorded: plan.record.length,
+      campaigns: plan.importItems.length,
     })
     return out
   }
@@ -1637,6 +1725,7 @@ export function useActions() {
         reason?: string,
         alsoRecord?: { displayName: string; countryId: string; supplier?: string; timezone?: string }[],
       ) => run({ type: 'ACCOUNTS_RETIRE', accountIds, reason, alsoRecord, actorId: currentUser.id }),
+      applyMigration: (id: string) => run({ type: 'MIGRATION_APPLY', id, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

@@ -57,6 +57,7 @@ const KIND_OF: Record<string, ActivityKind> = {
   ACCOUNT_CREATED: 'account',
   ACCOUNT_STATUS_SET: 'account',
   ACCOUNT_RETIRED: 'account',
+  MIGRATION_APPLIED: 'account',
   ACCOUNT_NUMBER_SET: 'account',
   USER_CREATED: 'team',
   USER_DEACTIVATED: 'team',
@@ -228,6 +229,13 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
         ? `Added ad account ${str(m.displayName) ?? ''} from a Meta export`
         : `Added ad account ${str(m.displayName) ?? ''}`
       break
+    case 'MIGRATION_APPLIED': {
+      const retired = num(m.retired) ?? 0
+      const recorded = num(m.recorded) ?? 0
+      const campaigns = num(m.campaigns) ?? 0
+      text = `Applied the prepared clean-up: ${retired} ${retired === 1 ? 'account' : 'accounts'} retired, ${recorded} recorded as off-boarded, ${campaigns} ${campaigns === 1 ? 'CBO' : 'CBOs'} imported`
+      break
+    }
     case 'ACCOUNT_RETIRED': {
       const n = Array.isArray(m.campaigns) ? m.campaigns.length : 0
       text = `Retired ${str(m.displayName) ?? 'an account'} — off-boarded, ${n} ${n === 1 ? 'CBO' : 'CBOs'} killed${
