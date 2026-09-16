@@ -27,8 +27,7 @@ export const CONCEPT_LABELS: Record<ConceptType, string> = {
 
 /** §8.1 / §8.2 default directions, prefilled into new briefs. Charles can overwrite. */
 export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
-  SWIPES_PLAYBOOK:
-    'Find/use the supplied swipe references and apply our Playbook concepts. Keep the product/market direction as the priority. Create clear variations rather than tiny cosmetic changes.',
+  SWIPES_PLAYBOOK: 'Use the playbook concepts.',
   SWIPES:
     'Recreate the supplied swipe references as faithfully as our brand allows: same structure, pacing, hook placement and format. Swap in our product, talent and claims only. No Playbook concepts on top — this batch tests the references themselves.',
   ITERATION:
