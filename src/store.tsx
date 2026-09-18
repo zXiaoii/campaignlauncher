@@ -440,8 +440,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
     launchDate,
     brief: {
       // §8.4 — hooks and references are never carried over silently. The source
-      // Drive is attached as a reference by CREATE_LAUNCH; direction falls back to
-      // the source's when the framework has no preset text.
+      // Drive is attached as a reference by CREATE_LAUNCH; direction is blank
+      // unless Charles types one.
       hooks: [],
       angle: '',
       direction: DEFAULT_DIRECTION[conceptType],
@@ -734,7 +734,9 @@ function reducer(state: Db, action: Action): Db {
           type: input.conceptType,
           hooks: input.brief.hooks,
           angle: input.brief.angle || undefined,
-          direction: input.brief.direction || src?.direction,
+          // Never inherited from the source batch: a brief says only what Charles
+          // typed for this launch (blank is blank).
+          direction: input.brief.direction.trim() || undefined,
           references,
           driveUrl: undefined,
           createdAt: now().toISOString(),

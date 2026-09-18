@@ -126,7 +126,7 @@ const HANDLING_OPTIONS: { value: LaunchMode; title: string; desc: string }[] = [
   {
     value: 'DEEP_ITERATION',
     title: 'Deep iterate source',
-    desc: "Source Drive, hooks and direction are attached to Yzah's brief.",
+    desc: "The source Drive link is attached to Yzah's brief.",
   },
 ]
 
@@ -827,8 +827,13 @@ export function LaunchDrawer({
             </Field>
           </div>
 
-          <Field label="Direction">
-            <textarea className={textareaClass} value={direction} onChange={(e) => setDirection(e.target.value)} />
+          <Field label="Direction" hint="Optional. Blank means the framework name is the brief.">
+            <textarea
+              className={textareaClass}
+              value={direction}
+              placeholder="Anything Yzah should know beyond the framework…"
+              onChange={(e) => setDirection(e.target.value)}
+            />
           </Field>
 
           <Field label="References" hint="Meta Ad Library, Drive folders, web pages.">
@@ -867,8 +872,8 @@ export function LaunchDrawer({
 
           {sourceBatch?.driveUrl && effectiveHandling !== 'NEW_CREATIVE' && (
             <Callout>
-              The source Drive link and original direction are attached to Yzah&apos;s brief
-              automatically.
+              The source Drive link is attached to Yzah&apos;s brief automatically. The direction
+              is whatever you type above — nothing carries over.
             </Callout>
           )}
         </Section>
