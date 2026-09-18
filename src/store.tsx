@@ -19,7 +19,7 @@ import {
 import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
-import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './data/restrictionWave'
+import { findMigration } from './data/migrations'
 import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME, productKey } from './importing'
 import { groupsToImportItems, planExport } from './importPlan'
 import { SignIn } from './screens/SignIn'
@@ -518,11 +518,12 @@ export interface MigrationPlan {
 
 /** Computed against the live database at click time, so it is always current. */
 export function planMigration(db: Db, id: string): MigrationPlan {
-  if (id !== RESTRICTION_WAVE_ID) throw new LaunchRuleError('Unknown clean-up.')
+  const m = findMigration(id)
+  if (!m) throw new LaunchRuleError('Unknown prepared job.')
   const retireIds: string[] = []
   const record: MigrationPlan['record'] = []
   const unplaced: string[] = []
-  for (const p of BANNED_ACCOUNTS) {
+  for (const p of m.banned) {
     const acc = matchAccount(p.displayName, db.adAccounts)
     if (acc) {
       if (acc.status !== 'OFFBOARDED') retireIds.push(acc.id)
@@ -536,11 +537,11 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   // treated as "already here" for a same-named new one on a fresh account.
   const afterRetire =
     retireIds.length > 0 || record.length > 0
-      ? reducer(db, { type: 'ACCOUNTS_RETIRE', accountIds: retireIds, reason: RESTRICTION_WAVE_REASON, alsoRecord: record, actorId: 'u_charles' })
+      ? reducer(db, { type: 'ACCOUNTS_RETIRE', accountIds: retireIds, reason: m.reason, alsoRecord: record, actorId: 'u_charles' })
       : db
-  const groups = planExport(afterRetire, '', NEW_UK_EXPORT, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
+  const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
   return {
-    reason: RESTRICTION_WAVE_REASON,
+    reason: m.reason,
     retireIds,
     record,
     unplaced,
