@@ -119,7 +119,14 @@ export function ImportDrawer({
   const groups = useMemo(
     () =>
       exportParsed.parsed
-        ? planExport(db, accountId, exportParsed.parsed, { skipOff, products: productOverrides, accounts: accountOverrides })
+        ? planExport(db, accountId, exportParsed.parsed, {
+            skipOff,
+            products: productOverrides,
+            accounts: accountOverrides,
+            // Read the product out of the campaign name when the book does not know it
+            // yet — shown on the card as a suggestion Charles can overwrite.
+            deriveProducts: true,
+          })
         : [],
     [db, accountId, exportParsed.parsed, skipOff, productOverrides, accountOverrides],
   )
@@ -518,6 +525,7 @@ export function ImportDrawer({
                                 onChange={(e) => setProductOverrides((p) => ({ ...p, [g.key]: e.target.value }))}
                               />
                               {g.productGuessed && <span className="text-xs text-fg-tertiary">guessed from the name</span>}
+                              {g.productDerived && <span className="text-xs text-warn">new product, read from the name — check it</span>}
                             </div>
                           )}
                           <div className="mt-2 grid gap-0.5">

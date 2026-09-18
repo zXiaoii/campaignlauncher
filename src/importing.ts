@@ -406,10 +406,16 @@ export function isDeliveryOff(delivery: string | undefined): boolean {
  * appears in it ("MAIN CBO Revida 4" → Revida). Undefined when none matches.
  */
 export function guessProduct<T extends { name: string }>(campaignName: string, products: T[]): T | undefined {
-  const hay = campaignName.toLowerCase()
+  // Letters and digits only, so "Prosta Vita™", "Prostavita" and "PROSTA-VITA" all meet.
+  const hay = productKey(campaignName)
   return [...products]
     .sort((a, b) => b.name.length - a.name.length)
-    .find((p) => p.name.trim() && hay.includes(p.name.trim().toLowerCase()))
+    .find((p) => productKey(p.name).length >= 3 && hay.includes(productKey(p.name)))
+}
+
+/** Comparison key for product names: case, spacing, punctuation and ™ ignored. */
+export function productKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
 /**

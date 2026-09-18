@@ -20,7 +20,7 @@ import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
 import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './data/restrictionWave'
-import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME } from './importing'
+import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME, productKey } from './importing'
 import { groupsToImportItems, planExport } from './importPlan'
 import { SignIn } from './screens/SignIn'
 import {
@@ -107,8 +107,9 @@ export type Destination =
 
 /** Existing product for a typed name, if any (case- and whitespace-insensitive). */
 export function findProductByName(db: Db, name: string) {
-  const wanted = name.trim().toLowerCase()
-  return wanted ? db.products.find((p) => p.name.trim().toLowerCase() === wanted) : undefined
+  // Spacing, punctuation and ™ do not make a new product: "Prosta Vita" is "Prostavita".
+  const wanted = productKey(name)
+  return wanted ? db.products.find((p) => productKey(p.name) === wanted) : undefined
 }
 
 export interface CreateLaunchInput {
