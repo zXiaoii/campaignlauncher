@@ -31,6 +31,7 @@ import {
   DEFAULT_DIRECTION,
   extractAdAccountNumber,
   MAX_ADSETS_PER_CAMPAIGN,
+  MIN_DAYS_BETWEEN_BATCHES,
   parseDateInput,
   toDateInputValue,
 } from './naming'
@@ -371,9 +372,10 @@ export interface NextBatchPlan {
   input: CreateLaunchInput
   /**
    * Why the button is off, when it is. Checked in order: the account is off-boarded;
-   * the CBO is full; a previous batch is still planned (one in flight per CBO — this
-   * is what stops a spammed click from queueing four identical batches); or an ad
-   * set with today's generated name already exists.
+   * the CBO is killed or on hold; the CBO is full; a previous batch is still planned
+   * (one in flight per CBO — this is what stops a spammed click from queueing four
+   * identical batches); the latest ad set went live less than
+   * MIN_DAYS_BETWEEN_BATCHES ago; or an ad set with today's generated name exists.
    */
   blockedReason?: string
   /** Non-blocking: the account has a problem. Shown, never enforced. */
@@ -395,15 +397,19 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
     .filter((a) => a.campaignId === campaignId && a.launchedAt)
     .sort((a, b) => (a.launchedAt! < b.launchedAt! ? 1 : -1))
   const source = launched.find((a) => a.status === 'ACTIVE') ?? launched[0]
+  const latest = launched[0]
 
-  // An imported placeholder ("ad sets not imported yet") has no framework to copy — the next
-  // batch after it is the PRD default, Swipes + Playbook.
-  const conceptType =
-    source && source.conceptType !== 'CUSTOM' ? source.conceptType : 'SWIPES_PLAYBOOK'
-  const conceptLabel =
-    source && source.conceptType !== 'CUSTOM'
-      ? source.conceptLabel || CONCEPT_LABELS[conceptType]
-      : CONCEPT_LABELS.SWIPES_PLAYBOOK
+  // The trigger always makes a Swipes + Playbook batch (Charles, 17 Sep 2026) —
+  // iterations, variations and pure swipes are deliberate launches through the
+  // drawer, never something the one-click button decides on its own.
+  const conceptType: ConceptType = 'SWIPES_PLAYBOOK'
+  const conceptLabel = CONCEPT_LABELS.SWIPES_PLAYBOOK
+
+  // Cadence: the latest ad set must have been live for MIN_DAYS_BETWEEN_BATCHES
+  // before the next batch is due. Counted from its launch timestamp.
+  const cooldownMs = MIN_DAYS_BETWEEN_BATCHES * 86_400_000
+  const nextAllowedAt = latest?.launchedAt ? new Date(new Date(latest.launchedAt).getTime() + cooldownMs) : undefined
+  const tooSoon = nextAllowedAt ? at < nextAllowedAt : false
 
   const sourceLaunch = source
     ? db.launches.find((l) => l.destinationAdsetId === source.id)
@@ -463,9 +469,11 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
         ? `${cm.name} is full.`
         : inFlight.length > 0
           ? `${inFlight[0].name} has not launched yet — one batch in flight per CBO.`
-          : hasAdsetNamed(db, campaignId, adsetName)
-            ? `${cm.name} already has an ad set named "${adsetName}" today.`
-            : undefined
+          : tooSoon && latest && nextAllowedAt
+            ? `${latest.name} went live ${new Date(latest.launchedAt!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — the next batch is due from ${nextAllowedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${MIN_DAYS_BETWEEN_BATCHES} days between batches).`
+            : hasAdsetNamed(db, campaignId, adsetName)
+              ? `${cm.name} already has an ad set named "${adsetName}" today.`
+              : undefined
   const warning =
     acc && acc.status !== 'ACTIVE' && acc.status !== 'OFFBOARDED'
       ? `${acc.displayName} is ${acc.status.toLowerCase().replace('_', ' ')}${acc.statusReason ? ` — ${acc.statusReason}` : ''}. Setup may not be able to publish until it is healthy.`

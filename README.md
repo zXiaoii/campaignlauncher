@@ -308,6 +308,17 @@ Any ad set that has not gone live has a red **Cancel launch** button in its draw
 has a Drive link — Yzah submitted, or Charles supplied it — the batch stays in the
 Library for reuse; an untouched empty batch is removed with it.
 
+## Cadence and defaults (17–18 Sep 2026)
+
+- **Two days between batches.** Next batch (single or bulk) refuses a CBO whose latest
+  ad set went live less than `MIN_DAYS_BETWEEN_BATCHES` (2) days ago; the button reads
+  *⏳ Too soon* with the date it becomes due, and the state filter has a *Too soon* bucket.
+  Launching by hand through the drawer is not limited by this.
+- **The trigger is always Swipes + Playbook.** It no longer inherits iteration, variation
+  or pure swipes from the previous ad set; those are deliberate launches through the drawer.
+- **Default directions are blank** for every framework. The framework name is the brief;
+  anything more is typed per launch.
+
 ## Next batch — one click
 
 Every campaign card with room has **⚡ Next batch**. One click creates a launch

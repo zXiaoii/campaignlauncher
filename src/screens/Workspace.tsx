@@ -152,8 +152,8 @@ export function Workspace({
     if (c.onHold) return 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
-    // The only remaining block is a same-day name twin: this CBO already got its
-    // batch today.
+    // What remains is cadence: the latest ad set went live too recently for the
+    // next batch (MIN_DAYS_BETWEEN_BATCHES), or today's name already exists.
     if (planNextBatch(db, c.id, at).blockedReason) return 'LAUNCHED_TODAY'
     return 'READY'
   }
@@ -293,8 +293,8 @@ export function Workspace({
             disabled={eligible.length === 0}
             title={
               eligible.length === 0
-                ? 'Every CBO on screen is full or already has a batch in flight.'
-                : `One fresh batch into each of the ${eligible.length} CBOs that are ready for one, modelled on each one's latest active ad set.`
+                ? 'Every CBO on screen is full, has a batch in flight, or launched less than two days ago.'
+                : `One fresh Swipes + Playbook batch into each of the ${eligible.length} CBOs whose latest ad set has been live for two days or more.`
             }
             onClick={() => {
               const n = eligible.length
@@ -321,7 +321,7 @@ export function Workspace({
             { value: ALL as StateFilter, label: 'All' },
             { value: 'READY' as StateFilter, label: `Ready (${stateCounts.READY ?? 0})` },
             { value: 'IN_FLIGHT' as StateFilter, label: `In flight (${stateCounts.IN_FLIGHT ?? 0})` },
-            { value: 'LAUNCHED_TODAY' as StateFilter, label: `Launched today (${stateCounts.LAUNCHED_TODAY ?? 0})` },
+            { value: 'LAUNCHED_TODAY' as StateFilter, label: `Too soon (${stateCounts.LAUNCHED_TODAY ?? 0})` },
             { value: 'FULL' as StateFilter, label: `Full (${stateCounts.FULL ?? 0})` },
             { value: 'ON_HOLD' as StateFilter, label: `On hold (${stateCounts.ON_HOLD ?? 0})` },
             { value: 'KILLED' as StateFilter, label: `Killed (${stateCounts.KILLED ?? 0})` },
@@ -799,7 +799,11 @@ function NextBatchButton({
         }
       }}
     >
-      {plan.blockedReason && plan.blockedReason.includes('in flight') ? '⏳ Batch in flight' : '⚡ Next batch'}
+      {plan.blockedReason?.includes('in flight')
+        ? '⏳ Batch in flight'
+        : plan.blockedReason?.includes('days between batches')
+          ? '⏳ Too soon'
+          : '⚡ Next batch'}
     </Button>
   )
 }

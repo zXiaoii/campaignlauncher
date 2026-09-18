@@ -25,19 +25,25 @@ export const CONCEPT_LABELS: Record<ConceptType, string> = {
   CUSTOM: '',
 }
 
-/** §8.1 / §8.2 default directions, prefilled into new briefs. Charles can overwrite. */
+/**
+ * Default direction per framework, prefilled into new briefs. Blank on purpose
+ * (Charles, 17 Sep 2026): the framework name itself is the brief; anything more
+ * is typed per launch.
+ */
 export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
-  SWIPES_PLAYBOOK: 'Use the playbook concepts.',
-  SWIPES:
-    'Recreate the supplied swipe references as faithfully as our brand allows: same structure, pacing, hook placement and format. Swap in our product, talent and claims only. No Playbook concepts on top — this batch tests the references themselves.',
-  ITERATION:
-    'Iterate the winning hooks from the source. Same talent and structure, tighter first three seconds, clear variations rather than cosmetic changes.',
-  DEEP_ITERATION:
-    'Use the referenced source concept as the base. Create deeper variations of hook, visual presentation, angle and framing while preserving the central idea.',
-  VARIATION:
-    'Keep the winning concept exactly as it is. Produce variations of it only: new hooks on the same body, different formats (9:16 / 1:1 / 4:5), different opening visuals, different CTA lines. The idea, talent and structure stay untouched.',
+  SWIPES_PLAYBOOK: '',
+  SWIPES: '',
+  ITERATION: '',
+  DEEP_ITERATION: '',
+  VARIATION: '',
   CUSTOM: '',
 }
+
+/**
+ * Next batch cadence: a CBO takes a new batch only once its latest ad set has
+ * been live this many days. Stops the trigger from stacking a batch a day.
+ */
+export const MIN_DAYS_BETWEEN_BATCHES = 2
 
 export const CONCEPT_NAMES: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
