@@ -30,6 +30,7 @@ import {
   dedupeCampaignName,
   DEFAULT_DIRECTION,
   extractAdAccountNumber,
+  isCostCapCampaign,
   MAX_ADSETS_PER_CAMPAIGN,
   MIN_DAYS_BETWEEN_BATCHES,
   parseDateInput,
@@ -465,6 +466,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
         ? `${cm.name} is killed.`
       : cm.onHold
         ? `${cm.name} is on hold — no new ad sets go into it. Resume it from the card menu first.`
+      : isCostCapCampaign(cm.name)
+        ? `${cm.name} is a cost-cap CBO — the trigger never touches it. Launch into it by hand if you mean to.`
       : isCampaignFull(db, campaignId)
         ? `${cm.name} is full.`
         : inFlight.length > 0

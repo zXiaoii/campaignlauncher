@@ -36,7 +36,7 @@ import {
   isAccountProblem,
 } from '../labels'
 import { isPlaceholderAdset } from '../importing'
-import { MAX_ADSETS_PER_CAMPAIGN } from '../naming'
+import { isCostCapCampaign, MAX_ADSETS_PER_CAMPAIGN } from '../naming'
 import {
   accountsInCountry,
   adsetsInCampaign,
@@ -149,7 +149,8 @@ export function Workspace({
   // always the N the bulk button will launch into.
   const stateOf = (c: Campaign): Exclude<StateFilter, 'ALL'> => {
     if (c.status === 'KILLED') return 'KILLED'
-    if (c.onHold) return 'ON_HOLD'
+    // Cost-cap CBOs behave like on-hold ones for the trigger: hands off.
+    if (c.onHold || isCostCapCampaign(c.name)) return 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
     // What remains is cadence: the latest ad set went live too recently for the
@@ -535,7 +536,8 @@ function CampaignCard({
   const killed = campaign.status === 'KILLED'
   // A killed CBO has no live ad sets; its card shows the ones that went down with it.
   const live = killed ? adsetsInCampaign(db, campaign.id) : liveAdsets(db, campaign.id)
-  const held = Boolean(campaign.onHold)
+  const costCap = isCostCapCampaign(campaign.name)
+  const held = Boolean(campaign.onHold) || costCap
   const history = adsetsInCampaign(db, campaign.id).filter(
     (a) => !OCCUPYING_STATUSES.includes(a.status),
   )
@@ -562,10 +564,16 @@ function CampaignCard({
           {campaign.name}
         </span>
         <CampaignTypeChip type={campaign.campaignType} />
-        {held && (
-          <Chip tone="warn" title="Still running in Meta; the team no longer launches new ad sets into it.">
-            ⏸ On hold
+        {costCap ? (
+          <Chip tone="warn" title="Cost-cap CBO — tuned by hand. Next batch and the bulk trigger never touch it; launch into it from the drawer if you mean to.">
+            $ Cost cap
           </Chip>
+        ) : (
+          held && (
+            <Chip tone="warn" title="Still running in Meta; the team no longer launches new ad sets into it.">
+              ⏸ On hold
+            </Chip>
+          )
         )}
         {killed && (
           <Chip tone="danger" title={campaign.killedAt ? `Killed ${new Date(campaign.killedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Killed'}>
@@ -725,6 +733,8 @@ function CampaignCard({
                 {
                   label: held ? '▶ Resume new ad sets here' : '⏸ Stop new ad sets here',
                   separatorBefore: true,
+                  disabled: costCap,
+                  disabledReason: 'Cost-cap CBOs are recognised by their name and always kept off the trigger.',
                   onClick: () => {
                     if (setCampaignHold(campaign.id, !held)) {
                       onResult(

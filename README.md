@@ -318,6 +318,9 @@ Library for reuse; an untouched empty batch is removed with it.
   or pure swipes from the previous ad set; those are deliberate launches through the drawer.
 - **Default directions are blank** for every framework. The framework name is the brief;
   anything more is typed per launch.
+- **Cost-cap CBOs are never touched by the trigger.** Recognised by name ("COSTCAP",
+  "cost cap"); the card shows a *$ Cost cap* chip, sits in the *On hold* bucket, and Next
+  batch / the bulk button skip it. Launching into one by hand through the drawer still works.
 
 ## Next batch — one click
 

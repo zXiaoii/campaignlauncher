@@ -45,6 +45,14 @@ export const DEFAULT_DIRECTION: Record<ConceptType, string> = {
  */
 export const MIN_DAYS_BETWEEN_BATCHES = 2
 
+/**
+ * Cost-cap CBOs are tuned by hand and never get an automatic batch. Recognised
+ * by name, the way the team names them: "DIR OZEMPIL COSTCAP", "… cost cap …".
+ */
+export function isCostCapCampaign(name: string): boolean {
+  return /cost\s*[-_]?\s*cap/i.test(name)
+}
+
 export const CONCEPT_NAMES: Record<ConceptType, string> = {
   SWIPES_PLAYBOOK: 'Swipes + Playbook',
   SWIPES: 'Pure Swipes',
