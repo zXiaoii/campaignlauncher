@@ -43,6 +43,7 @@ const ROLE_LABEL: Record<Role, string> = {
   CREATIVE: 'Creative',
   SETUP: 'Setup',
   SETUP_QA: 'Setup QA',
+  STORE: 'Funnels & store',
 }
 
 const ROLE_TONE: Record<Role, ChipTone> = {
@@ -51,6 +52,7 @@ const ROLE_TONE: Record<Role, ChipTone> = {
   CREATIVE: 'rose',
   SETUP: 'success',
   SETUP_QA: 'info',
+  STORE: 'violet',
 }
 
 const KIND_TONE: Record<ActivityKind, ChipTone> = {
@@ -64,11 +66,12 @@ const KIND_TONE: Record<ActivityKind, ChipTone> = {
   qa: 'info',
   account: 'warn',
   team: 'quiet',
+  store: 'violet',
   other: 'quiet',
 }
 
 /** The order people appear in: the doers first, Danny last. */
-const ROLE_ORDER: Role[] = ['MEDIA_BUYER', 'CREATIVE', 'SETUP', 'SETUP_QA', 'CEO']
+const ROLE_ORDER: Role[] = ['MEDIA_BUYER', 'CREATIVE', 'SETUP', 'SETUP_QA', 'STORE', 'CEO']
 
 export function Dashboard({ onOpenAdset }: { onOpenAdset: (adsetId: string) => void }) {
   const { db, currentUser } = useStore()

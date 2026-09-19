@@ -57,6 +57,7 @@ import type {
   Db,
   LaunchMode,
   Role,
+  StoreChannel,
   User,
 } from './types'
 
@@ -342,6 +343,15 @@ type Action =
   | { type: 'FOLLOWUP_DISMISS'; sourceAdsetId: string; actorId: string }
   | { type: 'ADSET_ARCHIVE'; adsetId: string; actorId: string }
   | { type: 'ACCOUNT_SET_NUMBER'; accountId: string; number: string; actorId: string }
+  /** The store seat confirms (or un-confirms) Funnelish / Shopify for a product in a market. */
+  | {
+      type: 'PRODUCT_SET_CHECK'
+      productId: string
+      countryId: string
+      channel: StoreChannel
+      checked: boolean
+      actorId: string
+    }
   /** Hold or resume whole ad accounts — every CBO on a held account is off the trigger. */
   | { type: 'ACCOUNTS_SET_HOLD'; accountIds: string[]; onHold: boolean; actorId: string }
   /**
@@ -1028,6 +1038,27 @@ function reducer(state: Db, action: Action): Db {
       )
       log(db, action.actorId, 'campaign', cm.id, action.onHold ? 'CAMPAIGN_HELD' : 'CAMPAIGN_RESUMED', {
         campaignName: cm.name,
+      })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'PRODUCT_SET_CHECK': {
+      assertCanWrite(role, 'storeChecks')
+      const prod = state.products.find((p) => p.id === action.productId)
+      if (!prod) throw new LaunchRuleError('Product not found.')
+      const country = state.countries.find((c) => c.id === action.countryId)
+      if (!country) throw new LaunchRuleError('Market not found.')
+      const forMarket = { ...(prod.storeChecks?.[country.id] ?? {}) }
+      if (action.checked) forMarket[action.channel] = { by: action.actorId, at: now().toISOString() }
+      else delete forMarket[action.channel]
+      db.products = state.products.map((p) =>
+        p.id === prod.id ? { ...p, storeChecks: { ...(p.storeChecks ?? {}), [country.id]: forMarket } } : p,
+      )
+      log(db, action.actorId, 'product', prod.id, action.checked ? 'STORE_CHECKED' : 'STORE_UNCHECKED', {
+        product: prod.name,
+        market: country.code,
+        channel: action.channel,
       })
       return db
     }
@@ -1832,6 +1863,8 @@ export function useActions() {
       applyMigration: (id: string) => run({ type: 'MIGRATION_APPLY', id, actorId: currentUser.id }),
       setAccountsHold: (accountIds: string[], onHold: boolean) =>
         run({ type: 'ACCOUNTS_SET_HOLD', accountIds, onHold, actorId: currentUser.id }),
+      setStoreCheck: (productId: string, countryId: string, channel: StoreChannel, checked: boolean) =>
+        run({ type: 'PRODUCT_SET_CHECK', productId, countryId, channel, checked, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

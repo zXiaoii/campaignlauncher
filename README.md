@@ -233,6 +233,20 @@ on hold, the AUS GO DGTL book (Snorestop / Curcuvera killed), and the UK update.
 are order-independent: imports only add what is missing, and an account created from a
 supplier that is wholly on hold starts held.
 
+## Products Live — the funnels & store seat
+
+A sixth role, **Funnels & store** (`STORE`), for whoever keeps Funnelish and Shopify
+working. It has one tab, **Products Live**: four columns — UK, CANADA, AUSTRALIA, US —
+listing every product that has ads running in that market right now (an active CBO, on an
+account that is not off-boarded, with at least one ad set live), with how many CBOs and ad
+sets, a *new activity* chip when something launched in the last three days, and *on hold*
+when nothing new is being launched for it there. Each product has two ticks per market,
+**Funnelish** and **Shopify**: click once the funnel and the listing are fine; the tick
+records who and when, and *Still to check (n)* filters to what is left. Like Mark's QA
+tick they gate nothing. Products appear and leave on their own as CBOs go live or are
+killed. Charles and Danny get the same tab (Danny read-only); the ticks show on Danny's
+dashboard as *store checks*. Add the person from **Team → Add person → Funnels & store**.
+
 ## Account hold
 
 An ad account can be **on hold** (Ad Accounts card: *⏸ Hold* / *▶ Resume*; with a supplier,

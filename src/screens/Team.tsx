@@ -35,6 +35,7 @@ const ROLE_LABEL: Record<Role, string> = {
   CREATIVE: 'Creative',
   SETUP: 'Setup',
   SETUP_QA: 'Setup QA',
+  STORE: 'Funnels & store',
 }
 
 const ROLE_TONE: Record<Role, ChipTone> = {
@@ -43,6 +44,7 @@ const ROLE_TONE: Record<Role, ChipTone> = {
   CREATIVE: 'rose',
   SETUP: 'success',
   SETUP_QA: 'info',
+  STORE: 'violet',
 }
 
 const ROLE_DESC: Record<Role, string> = {
@@ -51,9 +53,10 @@ const ROLE_DESC: Record<Role, string> = {
   CREATIVE: 'Creative task queue: briefs in, Drive links out.',
   SETUP: 'Setup task queue: exact names in, launches out. Can raise blockers and report account problems.',
   SETUP_QA: 'Setup oversight and the QA checkmark. Never sees the creative queue.',
+  STORE: 'Funnelish and Shopify. Sees one screen: which products are live in which market, with a tick for each.',
 }
 
-const ROLES: Role[] = ['SETUP', 'CREATIVE', 'SETUP_QA', 'MEDIA_BUYER', 'CEO']
+const ROLES: Role[] = ['SETUP', 'CREATIVE', 'SETUP_QA', 'STORE', 'MEDIA_BUYER', 'CEO']
 
 export function Team() {
   const { db, currentUser } = useStore()

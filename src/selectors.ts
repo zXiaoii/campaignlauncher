@@ -72,6 +72,47 @@ export function campaignExistsInMeta(db: Db, campaignId: string, excludeAdsetId?
   return db.adsets.some((a) => a.campaignId === campaignId && a.id !== excludeAdsetId && a.status !== 'PLANNED')
 }
 
+/** A product that is being advertised in a market right now. */
+export interface LiveProduct {
+  product: Product
+  /** Active CBOs for it in this market, on accounts still in play. */
+  campaigns: Campaign[]
+  /** Ad sets running across those CBOs (planned ones are not live yet). */
+  liveAdsets: number
+  /** Most recent launch among them — "new here" is what the store seat looks for. */
+  latestLaunchAt?: string
+  /** True when every one of its CBOs is on hold, cost-capped or on a held account. */
+  allOnHold: boolean
+}
+
+/**
+ * What is live where, by product — the store seat's whole world. A product counts
+ * as live in a market when it has an active CBO there, on an account that is not
+ * off-boarded, holding at least one ad set that is running (imported placeholders
+ * included: the CBO runs even if its ad-set names were never sent).
+ */
+export function liveProductsInCountry(db: Db, countryId: string): LiveProduct[] {
+  const accounts = accountsInCountry(db, countryId)
+  const held = new Set(accounts.filter((a) => a.onHold).map((a) => a.id))
+  const byProduct = new Map<string, LiveProduct>()
+  for (const acc of accounts) {
+    for (const cm of campaignsInAccount(db, acc.id)) {
+      const running = adsetsInCampaign(db, cm.id).filter((a) => a.status === 'ACTIVE')
+      if (running.length === 0) continue
+      const prod = product(db, cm.productId)
+      if (!prod) continue
+      const entry = byProduct.get(prod.id) ?? { product: prod, campaigns: [], liveAdsets: 0, allOnHold: true }
+      entry.campaigns.push(cm)
+      entry.liveAdsets += running.length
+      const latest = running.map((a) => a.launchedAt).filter((x): x is string => Boolean(x)).sort().pop()
+      if (latest && (!entry.latestLaunchAt || latest > entry.latestLaunchAt)) entry.latestLaunchAt = latest
+      if (!(cm.onHold || held.has(acc.id))) entry.allOnHold = false
+      byProduct.set(prod.id, entry)
+    }
+  }
+  return [...byProduct.values()].sort((a, b) => a.product.name.localeCompare(b.product.name))
+}
+
 /** CBOs switched off for good — shown only behind the workspace's Killed filter. */
 export function killedCampaignsInAccount(db: Db, accountId: string): Campaign[] {
   return db.campaigns
@@ -438,6 +479,8 @@ const CREATIVE_EVENT_TYPES = new Set([
 export function eventKindsFor(role: User['role']): Set<SetupEventKind> {
   const setup: SetupEventKind[] = ['COMPLETED', 'BLOCKED', 'UNBLOCKED', 'ACCOUNT', 'QA', 'INSTRUCTIONS']
   const creative: SetupEventKind[] = ['SUBMITTED', 'REQUEST']
+  // The store seat has no part in the launch handover; its bell stays quiet.
+  if (role === 'STORE') return new Set()
   return new Set(role === 'SETUP_QA' ? setup : [...setup, ...creative])
 }
 

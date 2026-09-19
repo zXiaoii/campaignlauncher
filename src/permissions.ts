@@ -24,6 +24,7 @@ export type Area =
   | 'accountHealth'
   | 'creativeRequest'
   | 'team'
+  | 'storeChecks'
 
 export type Access = 'full' | 'read' | 'summary' | 'own' | 'setupOnly' | 'none'
 
@@ -34,6 +35,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   launches: {
     MEDIA_BUYER: 'full',
@@ -41,6 +43,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'own',
     SETUP_QA: 'setupOnly',
+    STORE: 'none',
   },
   creativeTasks: {
     MEDIA_BUYER: 'full',
@@ -48,6 +51,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'own',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   setupTasks: {
     MEDIA_BUYER: 'full',
@@ -55,6 +59,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'own',
     SETUP_QA: 'read',
+    STORE: 'none',
   },
   createLaunch: {
     MEDIA_BUYER: 'full',
@@ -62,6 +67,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   editBrief: {
     MEDIA_BUYER: 'full',
@@ -69,6 +75,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   submitCreative: {
     MEDIA_BUYER: 'read',
@@ -76,6 +83,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'full',
     SETUP: 'read',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   completeSetup: {
     MEDIA_BUYER: 'read',
@@ -83,6 +91,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'full',
     SETUP_QA: 'read',
+    STORE: 'none',
   },
   library: {
     MEDIA_BUYER: 'full',
@@ -90,6 +99,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'read',
     SETUP: 'read',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   followups: {
     MEDIA_BUYER: 'full',
@@ -97,6 +107,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   /**
    * The QA checkmark is Mark's alone to set — Charles and Danny can see it, the
@@ -108,6 +119,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'read',
     SETUP_QA: 'full',
+    STORE: 'none',
   },
   /** Setup raises and clears blockers; everyone who sees setup work sees them. */
   blockers: {
@@ -116,6 +128,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'full',
     SETUP_QA: 'read',
+    STORE: 'none',
   },
   /** Ad-account directory. Charles adds/corrects accounts; Danny browses. */
   accounts: {
@@ -124,6 +137,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   /**
    * Account health. Setup can flag it (they hit the restriction first), Charles
@@ -135,6 +149,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'full',
     SETUP_QA: 'read',
+    STORE: 'none',
   },
   /** Yzah's request back to Charles on a creative task; Charles clears it. */
   creativeRequest: {
@@ -143,6 +158,7 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'full',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
   },
   /** Who is on the team and in which seat. Charles builds it; Danny can look. */
   team: {
@@ -151,6 +167,19 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CREATIVE: 'none',
     SETUP: 'none',
     SETUP_QA: 'none',
+    STORE: 'none',
+  },
+  /**
+   * Products live per market, with the Funnelish / Shopify ticks. The store seat
+   * sets them, Charles can too, Danny reads. Like QA, the ticks gate nothing.
+   */
+  storeChecks: {
+    MEDIA_BUYER: 'full',
+    CEO: 'read',
+    CREATIVE: 'none',
+    SETUP: 'none',
+    SETUP_QA: 'none',
+    STORE: 'full',
   },
 }
 
@@ -195,6 +224,7 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'accounts', label: 'Ad Accounts' },
     { key: 'library', label: 'Library' },
     { key: 'followups', label: '48H Follow-ups' },
+    { key: 'products', label: 'Products Live' },
     { key: 'team', label: 'Team' },
   ],
   CEO: [
@@ -204,8 +234,11 @@ export const NAV: Record<Role, NavItem[]> = {
     { key: 'creative', label: 'Creative Tasks' },
     { key: 'setup', label: 'Setup Tasks' },
     { key: 'accounts', label: 'Ad Accounts' },
+    { key: 'products', label: 'Products Live' },
     { key: 'team', label: 'Team' },
   ],
+  /** One screen: which products are advertised where, and whether the funnel and store are fine. */
+  STORE: [{ key: 'products', label: 'Products Live' }],
   CREATIVE: [{ key: 'creative', label: 'Creative Tasks' }],
   SETUP: [{ key: 'setup', label: 'Setup Tasks' }],
   SETUP_QA: [

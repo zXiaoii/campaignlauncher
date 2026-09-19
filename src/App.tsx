@@ -16,6 +16,7 @@ import { Followups } from './screens/Followups'
 import { LaunchDrawer, type LaunchIntent } from './screens/LaunchDrawer'
 import { Library } from './screens/Library'
 import { NotificationBell, SetupToasts } from './screens/Notifications'
+import { ProductsLive } from './screens/ProductsLive'
 import { SetupOverview } from './screens/SetupOverview'
 import { SetupTasks } from './screens/SetupTasks'
 import { Team } from './screens/Team'
@@ -133,7 +134,7 @@ function Shell() {
       </header>
 
       <main className="flex-1 w-full max-w-[1440px] min-w-0 mx-auto px-4 pt-4 pb-10 max-[900px]:px-3">
-        {isCharles && <CleanupBanner />}
+        {isCharles && active === 'workspace' && <CleanupBanner />}
         {active === 'workspace' && (
           <Workspace
             title="Workspace"
@@ -167,6 +168,7 @@ function Shell() {
           <Followups onLaunch={openLaunch} onOpenLibrary={() => setActive('library')} />
         )}
         {active === 'team' && <Team />}
+        {active === 'products' && <ProductsLive />}
         {active === 'setupOverview' && <SetupOverview mode="overview" />}
         {active === 'setupHistory' && <SetupOverview mode="history" />}
       </main>

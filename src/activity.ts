@@ -17,6 +17,7 @@ export type ActivityKind =
   | 'qa' // Mark checked
   | 'account' // ad account health / directory
   | 'team' // people added / deactivated
+  | 'store' // Funnelish / Shopify confirmed for a product in a market
   | 'other'
 
 export interface ActivityLine {
@@ -60,6 +61,8 @@ const KIND_OF: Record<string, ActivityKind> = {
   ACCOUNT_HELD: 'account',
   ACCOUNT_RESUMED: 'account',
   MIGRATION_APPLIED: 'account',
+  STORE_CHECKED: 'store',
+  STORE_UNCHECKED: 'store',
   ACCOUNT_NUMBER_SET: 'account',
   USER_CREATED: 'team',
   USER_DEACTIVATED: 'team',
@@ -77,6 +80,7 @@ export const KIND_LABEL: Record<ActivityKind, string> = {
   qa: 'QA checks',
   account: 'accounts',
   team: 'team',
+  store: 'store checks',
   other: 'other',
 }
 
@@ -236,6 +240,15 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       const recorded = num(m.recorded) ?? 0
       const campaigns = num(m.campaigns) ?? 0
       text = `Applied the prepared clean-up: ${retired} ${retired === 1 ? 'account' : 'accounts'} retired, ${recorded} recorded as off-boarded, ${campaigns} ${campaigns === 1 ? 'CBO' : 'CBOs'} imported`
+      break
+    }
+    case 'STORE_CHECKED':
+    case 'STORE_UNCHECKED': {
+      const channel = str(m.channel) === 'shopify' ? 'Shopify' : 'Funnelish'
+      text =
+        l.eventType === 'STORE_CHECKED'
+          ? `Confirmed ${channel} is fine for ${str(m.product) ?? 'a product'} in ${str(m.market) ?? 'a market'}`
+          : `Removed the ${channel} tick for ${str(m.product) ?? 'a product'} in ${str(m.market) ?? 'a market'}`
       break
     }
     case 'ACCOUNT_HELD':

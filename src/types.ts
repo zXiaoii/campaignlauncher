@@ -1,7 +1,21 @@
 // Data model — mirrors PRD §14 "Minimal Data Model" and §14.1 enums.
 // Field names are camelCase here; the snake_case column names in the PRD map 1:1.
 
-export type Role = 'CEO' | 'MEDIA_BUYER' | 'CREATIVE' | 'SETUP' | 'SETUP_QA'
+/**
+ * STORE is the funnels-and-store seat: the person who keeps each product's
+ * Funnelish funnel and Shopify listing working in every market it is advertised
+ * in. Sees one screen — which products are live where — and nothing else.
+ */
+export type Role = 'CEO' | 'MEDIA_BUYER' | 'CREATIVE' | 'SETUP' | 'SETUP_QA' | 'STORE'
+
+/** The two places a product has to be right before ads can sell it. */
+export type StoreChannel = 'funnelish' | 'shopify'
+
+/** One tick: who confirmed the channel is fine for a product in a market, and when. */
+export interface StoreCheck {
+  by: string
+  at: string
+}
 
 /**
  * NEW / SWE / REL / DIT are the §4.1 codes the app generates names with. MAIN is
@@ -111,6 +125,11 @@ export interface Product {
   name: string
   store?: string
   active: boolean
+  /**
+   * Funnelish / Shopify confirmations, per market (country id). Like Mark's QA
+   * tick, these record that someone looked; nothing in the app waits on them.
+   */
+  storeChecks?: Record<string, Partial<Record<StoreChannel, StoreCheck>>>
 }
 
 export interface Campaign {
