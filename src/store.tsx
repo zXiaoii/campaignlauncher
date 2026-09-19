@@ -276,7 +276,18 @@ type Action =
    */
   | ({ type: 'CAMPAIGN_IMPORT'; actorId: string } & CampaignImportInput)
   /** Several CBOs from one Meta export, all or nothing. */
-  | { type: 'CAMPAIGN_IMPORT_MANY'; items: CampaignImportInput[]; actorId: string }
+  | {
+      type: 'CAMPAIGN_IMPORT_MANY'
+      items: CampaignImportInput[]
+      /**
+       * "Make this market match the file": active CBOs that are not in the export
+       * are marked killed, and live ad sets missing from a CBO that is in it are
+       * archived. Both optional, both revivable, nothing deleted.
+       */
+      killCampaignIds?: string[]
+      archiveAdsetIds?: string[]
+      actorId: string
+    }
   /** "We don't produce ad sets here anymore" — Next batch skips the CBO until resumed. */
   | { type: 'CAMPAIGN_SET_HOLD'; campaignId: string; onHold: boolean; actorId: string }
   /** Switched off in Meta for good (or brought back). Live ad sets follow the campaign. */
@@ -639,13 +650,32 @@ function reducer(state: Db, action: Action): Db {
   }
 
   if (action.type === 'CAMPAIGN_IMPORT_MANY') {
-    if (action.items.length === 0) throw new LaunchRuleError('Nothing selected to add.')
+    const killIds = action.killCampaignIds ?? []
+    const archiveIds = new Set(action.archiveAdsetIds ?? [])
+    if (action.items.length === 0 && killIds.length === 0 && archiveIds.size === 0) {
+      throw new LaunchRuleError('Nothing selected to add.')
+    }
     let next = state
     for (const item of action.items) {
       next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
     }
+    for (const campaignId of killIds) {
+      next = reducer(next, { type: 'CAMPAIGN_SET_KILLED', campaignId, killed: true, actorId: action.actorId })
+    }
     const out: Db = { ...next }
-    log(out, action.actorId, 'campaign', 'batch', 'CAMPAIGNS_IMPORTED', { campaigns: action.items.length })
+    if (archiveIds.size > 0) {
+      const actor = state.users.find((u) => u.id === action.actorId)
+      assertCanWrite(actor?.role ?? 'CREATIVE', 'workspace')
+      // Only ad sets that are live; a planned one belongs to a launch in flight.
+      out.adsets = next.adsets.map((a) =>
+        archiveIds.has(a.id) && (a.status === 'ACTIVE' || a.status === 'STOPPED') ? { ...a, status: 'ARCHIVED' as const } : a,
+      )
+    }
+    log(out, action.actorId, 'campaign', 'batch', 'CAMPAIGNS_IMPORTED', {
+      campaigns: action.items.length,
+      killed: killIds.length,
+      archivedAdsets: archiveIds.size,
+    })
     return out
   }
 
@@ -1786,8 +1816,10 @@ export function useActions() {
         run({ type: 'SETUP_SET_INSTRUCTIONS', taskId, instructions, actorId: currentUser.id }),
       importCampaign: (input: CampaignImportInput) =>
         run({ type: 'CAMPAIGN_IMPORT', ...input, actorId: currentUser.id }),
-      importCampaigns: (items: CampaignImportInput[]) =>
-        run({ type: 'CAMPAIGN_IMPORT_MANY', items, actorId: currentUser.id }),
+      importCampaigns: (
+        items: CampaignImportInput[],
+        sync: { killCampaignIds?: string[]; archiveAdsetIds?: string[] } = {},
+      ) => run({ type: 'CAMPAIGN_IMPORT_MANY', items, ...sync, actorId: currentUser.id }),
       setCampaignHold: (campaignId: string, onHold: boolean) =>
         run({ type: 'CAMPAIGN_SET_HOLD', campaignId, onHold, actorId: currentUser.id }),
       setCampaignKilled: (campaignId: string, killed: boolean) =>

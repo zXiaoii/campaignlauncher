@@ -20,6 +20,8 @@ const UK2_ROWS: [account: string, campaign: string, adset: string][] = [
   ['50643 reliore [GO DGTL]', 'REL Bellavren', '09/17/26 swipes + playbook'],
   ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/16/26 iteration'],
   ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/16/26 swipes + playbook'],
+  // 19 Sep paste: DIR Ozempil 9.29 = 8.53 + 0.73 + 0.03
+  ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/17/26 swipes + playbook'],
 
   ['50656 Reliore [GO DGTL]', 'SWE Bellavren', '09/15/26 iteration'],
   ['50656 Reliore [GO DGTL]', 'MAIN CBO AFFINERA GODGTL', '09/14/26 Swipes'],

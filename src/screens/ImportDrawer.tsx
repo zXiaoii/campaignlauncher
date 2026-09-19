@@ -137,6 +137,36 @@ export function ImportDrawer({
   const newAccountNames = [...new Set(selectedGroups.filter((g) => g.newAccount).map((g) => g.newAccount!.displayName))]
   const unplacedAccounts = [...new Set(groups.filter((g) => !g.accountId && !g.newAccount?.countryId).map((g) => g.accountName ?? ''))]
 
+  // ---- make a market match the file -----------------------------------------
+  // Imports only add. When the file is the whole truth for a market, this also
+  // retires what is no longer in it: CBOs → killed, stray ad sets → archived.
+  // Off by default, previewed in full, revivable, and never touches anything with
+  // a launch still in flight.
+  const [syncCountryId, setSyncCountryId] = useState('')
+  const [archiveMissing, setArchiveMissing] = useState(false)
+  const inFileCampaignIds = new Set(groups.map((g) => g.existingId).filter((x): x is string => Boolean(x)))
+  const marketAccountIds = new Set(
+    db.adAccounts.filter((a) => a.countryId === syncCountryId && a.status !== 'OFFBOARDED').map((a) => a.id),
+  )
+  const notInFile = syncCountryId
+    ? db.campaigns.filter((c) => c.status === 'ACTIVE' && marketAccountIds.has(c.adAccountId) && !inFileCampaignIds.has(c.id))
+    : []
+  const hasPlanned = (campaignId: string) => db.adsets.some((a) => a.campaignId === campaignId && a.status === 'PLANNED')
+  const toKill = notInFile.filter((c) => !hasPlanned(c.id))
+  const killBlocked = notInFile.filter((c) => hasPlanned(c.id))
+  const toArchive =
+    syncCountryId && archiveMissing
+      ? groups
+          .filter((g) => g.existingId && g.accountId && marketAccountIds.has(g.accountId))
+          .flatMap((g) => {
+            const names = new Set(g.adsets.map((a) => a.name))
+            return liveAdsets(db, g.existingId!)
+              .filter((a) => a.status !== 'PLANNED' && !isPlaceholderAdset(a) && !names.has(a.name))
+              .map((a) => ({ adset: a, campaignName: g.campaignName }))
+          })
+      : []
+  const syncing = toKill.length > 0 || toArchive.length > 0
+
   async function readFile(file: File) {
     setExportFileName(file.name)
     setExportText('')
@@ -158,7 +188,7 @@ export function ImportDrawer({
   const problems: string[] = []
   if (!account && !(mode === 'EXPORT' && fileHasAccounts)) problems.push('Pick an ad account.')
   if (mode === 'EXPORT' && !exportParsed.parsed) problems.push(exportParsed.error ?? 'Choose the exported file or paste the table.')
-  if (mode === 'EXPORT' && exportParsed.parsed && selectedGroups.length === 0) problems.push('Nothing selected to add.')
+  if (mode === 'EXPORT' && exportParsed.parsed && selectedGroups.length === 0 && !syncing) problems.push('Nothing selected to add.')
   if (mode === 'NEW' && !cleanName) problems.push('Type the campaign name exactly as it is in Meta.')
   if (mode === 'NEW' && nameTaken) problems.push(`${account?.displayName} already has a CBO named "${cleanName}".`)
   if (mode === 'NEW' && !productName.trim()) problems.push('Type the product.')
@@ -173,7 +203,17 @@ export function ImportDrawer({
     if (!canSave) return
     if (mode === 'EXPORT') {
       const items = groupsToImportItems(selectedGroups)
-      if (importCampaigns(items)) {
+      if (
+        syncing &&
+        !window.confirm(
+          `Make ${db.countries.find((c) => c.id === syncCountryId)?.code ?? 'the market'} match this file? ${toKill.length} ${toKill.length === 1 ? 'CBO' : 'CBOs'} not in it will be marked killed${
+            toArchive.length ? ` and ${toArchive.length} ad ${toArchive.length === 1 ? 'set' : 'sets'} archived` : ''
+          }. Nothing is deleted; both can be brought back.`,
+        )
+      ) {
+        return
+      }
+      if (importCampaigns(items, { killCampaignIds: toKill.map((c) => c.id), archiveAdsetIds: toArchive.map((x) => x.adset.id) })) {
         const created = items.filter((i) => !i.campaignId).length
         const n = selectedAccountIds.size
         const first = [...selectedAccountIds][0] ?? ''
@@ -183,7 +223,11 @@ export function ImportDrawer({
           title: n === 1 ? (adAccount(db, first)?.displayName ?? first.replace(/^new:/, '')) : `${n} ad accounts`,
           body: `${created} new ${created === 1 ? 'CBO' : 'CBOs'}, ${selectedAdsets} ad ${selectedAdsets === 1 ? 'set' : 'sets'}${
             newAccountNames.length ? `, ${newAccountNames.length} new ad ${newAccountNames.length === 1 ? 'account' : 'accounts'}` : ''
-          } added. Nothing else was touched.`,
+          } added.${
+            syncing
+              ? ` ${toKill.length} ${toKill.length === 1 ? 'CBO' : 'CBOs'} not in the file marked killed${toArchive.length ? `, ${toArchive.length} ad sets archived` : ''}.`
+              : ' Nothing else was touched.'
+          }`,
           ms: 8000,
         })
         onClose()
@@ -254,7 +298,7 @@ export function ImportDrawer({
           <Button onClick={onClose}>Cancel</Button>
           <Button variant="primary" disabled={!canSave} title={problems[0]} onClick={submit}>
             {mode === 'EXPORT'
-              ? `Add ${selectedGroups.length} ${selectedGroups.length === 1 ? 'CBO' : 'CBOs'}`
+              ? `Add ${selectedGroups.length} ${selectedGroups.length === 1 ? 'CBO' : 'CBOs'}${toKill.length ? ` · kill ${toKill.length}` : ''}${toArchive.length ? ` · archive ${toArchive.length}` : ''}`
               : mode === 'EXISTING'
                 ? 'Add ad sets'
                 : 'Add CBO'}
@@ -419,6 +463,45 @@ export function ImportDrawer({
                     Skip ad sets Meta reports as off, inactive, completed or deleted
                   </label>
                 )}
+
+                <div className="mt-3 p-3 border border-line rounded-lg bg-surface">
+                  <Field
+                    label="Make a market match this file"
+                    hint="Imports only add. Pick a market when this export is the complete picture of it: every active CBO there that is not in the file is marked killed (revivable). Leave off for a partial export."
+                  >
+                    <select className={selectClass} value={syncCountryId} onChange={(e) => setSyncCountryId(e.target.value)}>
+                      <option value="">Off — only add</option>
+                      {db.countries.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.code} — kill CBOs that are not in this file
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {syncCountryId && (
+                    <>
+                      <label className="flex items-start gap-2 text-[13px] cursor-pointer">
+                        <input type="checkbox" className="mt-0.5" checked={archiveMissing} onChange={(e) => setArchiveMissing(e.target.checked)} />
+                        <span>
+                          Also archive live ad sets that are missing from a CBO in the file. Only for an export over a wide date
+                          range — a "had delivery today" file leaves out ad sets that simply did not spend.
+                        </span>
+                      </label>
+                      <Block className="mt-2.5 max-h-52 overflow-auto">
+                        {[
+                          `MARK AS KILLED — not in the file (${toKill.length})`,
+                          ...toKill.map((c) => `  ${c.name}   · ${adAccount(db, c.adAccountId)?.displayName ?? ''}`),
+                          ...(killBlocked.length
+                            ? ['', `LEFT ALONE — launch still in flight (${killBlocked.length})`, ...killBlocked.map((c) => `  ${c.name}`)]
+                            : []),
+                          ...(archiveMissing
+                            ? ['', `ARCHIVE — ad sets not in the file (${toArchive.length})`, ...toArchive.map((x) => `  ${x.adset.name}   · ${x.campaignName}`)]
+                            : []),
+                        ].join('\n')}
+                      </Block>
+                    </>
+                  )}
+                </div>
               </>
             )}
           </Section>
