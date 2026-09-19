@@ -6,8 +6,10 @@
 // anything that went live.
 
 import type { MetaExport, PastedAccount } from '../importing'
+import { AUS_EXPORT } from './ausImport'
 import { CANADA_EXPORT } from './canadaImport'
 import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
+import { UK2_EXPORT } from './ukImport'
 
 export interface PreparedMigration {
   id: string
@@ -21,7 +23,16 @@ export interface PreparedMigration {
   reason: string
   banned: PastedAccount[]
   book: MetaExport
+  /** Suppliers whose every account in play goes on hold (nothing new launched into them). */
+  holdSuppliers?: string[]
+  /**
+   * Products Charles declared killed: every active CBO whose name or product
+   * contains one of these words is marked killed (history kept, revivable).
+   */
+  killWords?: string[]
 }
+
+const NO_BOOK: MetaExport = { rows: [], columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' }, accounts: [] }
 
 export const MIGRATIONS: PreparedMigration[] = [
   {
@@ -41,6 +52,39 @@ export const MIGRATIONS: PreparedMigration[] = [
     reason: '',
     banned: [],
     book: CANADA_EXPORT,
+  },
+  {
+    // Charles, 19 Sep 2026: "ad accounts in RHKA put those on hold". Accounts the
+    // Canada import creates afterwards inherit the hold, so the order of the two
+    // clicks does not matter.
+    id: '2026-09-19-rhka-hold',
+    chip: 'Prepared change · 19 Sep',
+    title: 'RHKA on hold',
+    bookLabel: '',
+    reason: '',
+    banned: [],
+    book: NO_BOOK,
+    holdSuppliers: ['RHKA'],
+  },
+  {
+    // Charles, 19 Sep 2026: the AUS GO DGTL book, and "snorestop and curcuvera is killed".
+    id: '2026-09-19-aus-book',
+    chip: 'Prepared import · 19 Sep',
+    title: 'AUS book',
+    bookLabel: 'the AUS GO DGTL book from your pivots',
+    reason: '',
+    banned: [],
+    book: AUS_EXPORT,
+    killWords: ['Snorestop', 'Curcuvera'],
+  },
+  {
+    id: '2026-09-19-uk-book',
+    chip: 'Prepared import · 19 Sep',
+    title: 'UK update',
+    bookLabel: 'the UK GO DGTL and AD 23 updates from your 18–19 Sep pivots',
+    reason: '',
+    banned: [],
+    book: UK2_EXPORT,
   },
 ]
 

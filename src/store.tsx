@@ -331,6 +331,8 @@ type Action =
   | { type: 'FOLLOWUP_DISMISS'; sourceAdsetId: string; actorId: string }
   | { type: 'ADSET_ARCHIVE'; adsetId: string; actorId: string }
   | { type: 'ACCOUNT_SET_NUMBER'; accountId: string; number: string; actorId: string }
+  /** Hold or resume whole ad accounts — every CBO on a held account is off the trigger. */
+  | { type: 'ACCOUNTS_SET_HOLD'; accountIds: string[]; onHold: boolean; actorId: string }
   /**
    * A prepared one-click clean-up (see data/restrictionWave.ts): retire the banned
    * accounts, then import the new book. Recorded in the activity log so it can only
@@ -467,6 +469,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
         ? `${cm.name} is killed.`
       : cm.onHold
         ? `${cm.name} is on hold — no new ad sets go into it. Resume it from the card menu first.`
+      : acc?.onHold
+        ? `${acc.displayName} is on hold — nothing new is launched into this account. Resume it in Ad Accounts first.`
       : isCostCapCampaign(cm.name)
         ? `${cm.name} is a cost-cap CBO — the trigger never touches it. Launch into it by hand if you mean to.`
       : isCampaignFull(db, campaignId)
@@ -514,6 +518,12 @@ export interface MigrationPlan {
   importItems: CampaignImportInput[]
   /** Groups the import will skip and why — shown in the banner so nothing is silent. */
   skipped: { campaignName: string; why: string }[]
+  /** Accounts in play from the job's held suppliers that are not on hold yet. */
+  holdIds: string[]
+  /** Active CBOs of a product the job declares killed, with nothing in flight. */
+  killIds: string[]
+  /** Same, but with a launch still planned — left alone and named, not silently skipped. */
+  killBlocked: string[]
 }
 
 /** Computed against the live database at click time, so it is always current. */
@@ -540,13 +550,28 @@ export function planMigration(db: Db, id: string): MigrationPlan {
       ? reducer(db, { type: 'ACCOUNTS_RETIRE', accountIds: retireIds, reason: m.reason, alsoRecord: record, actorId: 'u_charles' })
       : db
   const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
+  const held = new Set(m.holdSuppliers ?? [])
+  const words = (m.killWords ?? []).map((w) => productKey(w)).filter(Boolean)
+  const doomed =
+    words.length === 0
+      ? []
+      : afterRetire.campaigns.filter((c) => {
+          if (c.status !== 'ACTIVE') return false
+          const hay = productKey(`${c.name} ${afterRetire.products.find((p) => p.id === c.productId)?.name ?? ''}`)
+          return words.some((w) => hay.includes(w))
+        })
   return {
+    killIds: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length === 0).map((c) => c.id),
+    killBlocked: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length > 0).map((c) => c.name),
     reason: m.reason,
     retireIds,
     record,
     unplaced,
     importItems: groupsToImportItems(groups),
     skipped: groups.filter((g) => g.problem).map((g) => ({ campaignName: g.campaignName, why: g.problem! })),
+    holdIds: afterRetire.adAccounts
+      .filter((a) => a.supplier && held.has(a.supplier) && a.status !== 'OFFBOARDED' && !a.onHold)
+      .map((a) => a.id),
   }
 }
 
@@ -591,14 +616,24 @@ function reducer(state: Db, action: Action): Db {
         actorId: action.actorId,
       })
     }
+    // Hold before importing, so an account the import creates from a held supplier
+    // inherits the hold (see CAMPAIGN_IMPORT).
+    if (plan.holdIds.length > 0) {
+      next = reducer(next, { type: 'ACCOUNTS_SET_HOLD', accountIds: plan.holdIds, onHold: true, actorId: action.actorId })
+    }
     for (const item of plan.importItems) {
       next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
     }
+    for (const campaignId of plan.killIds) {
+      next = reducer(next, { type: 'CAMPAIGN_SET_KILLED', campaignId, killed: true, actorId: action.actorId })
+    }
     const out: Db = { ...next }
     log(out, action.actorId, 'migration', action.id, 'MIGRATION_APPLIED', {
+      killed: plan.killIds.length,
       retired: plan.retireIds.length,
       recorded: plan.record.length,
       campaigns: plan.importItems.length,
+      held: plan.holdIds.length,
     })
     return out
   }
@@ -844,14 +879,20 @@ function reducer(state: Db, action: Action): Db {
           if (!state.countries.some((c) => c.id === action.newAccount!.countryId)) {
             throw new LaunchRuleError(`Pick the market for the new account "${displayName}".`)
           }
+          const supplier = action.newAccount.supplier?.trim() || undefined
+          // A supplier whose every account in play is on hold is held as a whole
+          // (e.g. "RHKA on hold"): a new account from it starts held too.
+          const siblings = supplier ? state.adAccounts.filter((a) => a.supplier === supplier && a.status !== 'OFFBOARDED') : []
+          const supplierHeld = siblings.length > 0 && siblings.every((a) => a.onHold)
           acc = {
             id: nextId('ac'),
             countryId: action.newAccount.countryId,
             displayName,
             adAccountNumber: extractAdAccountNumber(displayName),
-            supplier: action.newAccount.supplier?.trim() || undefined,
+            supplier,
             store: action.newAccount.store?.trim() || undefined,
             status: 'ACTIVE',
+            onHold: supplierHeld || undefined,
           }
           db.adAccounts = [...state.adAccounts, acc]
           log(db, action.actorId, 'ad_account', acc.id, 'ACCOUNT_CREATED', {
@@ -958,6 +999,22 @@ function reducer(state: Db, action: Action): Db {
       log(db, action.actorId, 'campaign', cm.id, action.onHold ? 'CAMPAIGN_HELD' : 'CAMPAIGN_RESUMED', {
         campaignName: cm.name,
       })
+      return db
+    }
+
+    // -----------------------------------------------------------------------
+    case 'ACCOUNTS_SET_HOLD': {
+      assertCanWrite(role, 'accounts')
+      const ids = new Set(action.accountIds)
+      const targets = state.adAccounts.filter((a) => ids.has(a.id) && Boolean(a.onHold) !== action.onHold)
+      if (targets.length === 0) throw new LaunchRuleError(action.onHold ? 'Those accounts are already on hold.' : 'Those accounts are not on hold.')
+      const targetIds = new Set(targets.map((a) => a.id))
+      db.adAccounts = state.adAccounts.map((a) => (targetIds.has(a.id) ? { ...a, onHold: action.onHold || undefined } : a))
+      for (const a of targets) {
+        log(db, action.actorId, 'ad_account', a.id, action.onHold ? 'ACCOUNT_HELD' : 'ACCOUNT_RESUMED', {
+          displayName: a.displayName,
+        })
+      }
       return db
     }
 
@@ -1741,6 +1798,8 @@ export function useActions() {
         alsoRecord?: { displayName: string; countryId: string; supplier?: string; timezone?: string }[],
       ) => run({ type: 'ACCOUNTS_RETIRE', accountIds, reason, alsoRecord, actorId: currentUser.id }),
       applyMigration: (id: string) => run({ type: 'MIGRATION_APPLY', id, actorId: currentUser.id }),
+      setAccountsHold: (accountIds: string[], onHold: boolean) =>
+        run({ type: 'ACCOUNTS_SET_HOLD', accountIds, onHold, actorId: currentUser.id }),
       setAccountStatus: (accountId: string, status: AdAccountStatus, reason?: string) =>
         run({ type: 'ACCOUNT_SET_STATUS', accountId, status, reason, actorId: currentUser.id }),
       createUser: (input: { name: string; username: string; role: Role; passwordHash?: string }) =>

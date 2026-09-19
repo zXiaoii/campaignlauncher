@@ -55,6 +55,8 @@ type Activity = 'ALL' | 'LIVE' | 'PLANNED' | 'EMPTY'
 
 export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => void }) {
   const { db, currentUser } = useStore()
+  const { setAccountsHold } = useActions()
+  const { show } = useToast()
   const [query, setQuery] = useState('')
   const [countryId, setCountryId] = useState('ALL')
   const [category, setCategory] = useState<Category>('ALL')
@@ -211,6 +213,36 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
           </Button>
         )}
         <span className="flex-1" />
+        {/* Bulk hold: whatever the filters show — typically one supplier, e.g. all RHKA. */}
+        {canAdd && category !== 'OFFBOARDED' && shown.length > 0 && (supplier !== 'ALL' || countryId !== 'ALL' || q) && (
+          <>
+            {shown.some((s) => !s.account.onHold) && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  const ids = shown.filter((s) => !s.account.onHold).map((s) => s.account.id)
+                  if (window.confirm(`Put ${ids.length} ${ids.length === 1 ? 'account' : 'accounts'} on hold? They keep running; nothing new is launched into them.`)) {
+                    if (setAccountsHold(ids, true)) show({ tone: 'default', kind: 'On hold', title: `${ids.length} accounts`, body: 'Next batch and the bulk trigger skip their CBOs.' })
+                  }
+                }}
+              >
+                ⏸ Hold the {shown.filter((s) => !s.account.onHold).length} shown
+              </Button>
+            )}
+            {shown.some((s) => s.account.onHold) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  const ids = shown.filter((s) => s.account.onHold).map((s) => s.account.id)
+                  if (setAccountsHold(ids, false)) show({ tone: 'success', kind: 'Resumed', title: `${ids.length} accounts`, body: 'Next batch can target them again.' })
+                }}
+              >
+                ▶ Resume the {shown.filter((s) => s.account.onHold).length} held
+              </Button>
+            )}
+          </>
+        )}
         <span className="text-xs text-fg-secondary whitespace-nowrap">
           {shown.length} of {category === 'OFFBOARDED' ? offboarded.length : all.length}
         </span>
@@ -241,6 +273,22 @@ export function AdAccounts({ onOpenAdset }: { onOpenAdset: (adsetId: string) => 
               summary={s}
               onViewTasks={() => setTasksFor(s.account.id)}
               onSetStatus={canSetStatus ? () => setStatusFor(s.account.id) : undefined}
+              onToggleHold={
+                canAdd
+                  ? () => {
+                      if (setAccountsHold([s.account.id], !s.account.onHold)) {
+                        show({
+                          tone: s.account.onHold ? 'success' : 'default',
+                          kind: s.account.onHold ? 'Resumed' : 'On hold',
+                          title: s.account.displayName,
+                          body: s.account.onHold
+                            ? 'Next batch can target its CBOs again.'
+                            : 'It keeps running; nothing new is launched into it.',
+                        })
+                      }
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>
@@ -269,10 +317,12 @@ function AccountCard({
   summary: s,
   onViewTasks,
   onSetStatus,
+  onToggleHold,
 }: {
   summary: AccountSummary
   onViewTasks: () => void
   onSetStatus?: () => void
+  onToggleHold?: () => void
 }) {
   const { db } = useStore()
   const problem = isAccountProblem(s.account.status)
@@ -302,6 +352,11 @@ function AccountCard({
             )}
             {s.account.store && !s.account.supplierRef && <span>{s.account.store}</span>}
             {!s.account.adAccountNumber && <Chip tone="danger">no account number</Chip>}
+            {s.account.onHold && (
+              <Chip tone="warn" title="Keeps running; nothing new is launched into it and Next batch skips its CBOs.">
+                ⏸ On hold
+              </Chip>
+            )}
           </div>
         </div>
         <div className="ml-auto shrink-0 text-right">
@@ -373,6 +428,11 @@ function AccountCard({
         </span>
         {s.blocked > 0 && <BlockedChip reason={`${s.blocked} blocked`} />}
         <span className="flex-1" />
+        {onToggleHold && !gone && (
+          <Button size="sm" variant="ghost" onClick={onToggleHold} title={s.account.onHold ? 'Let Next batch target this account again.' : 'Keep it running, launch nothing new into it.'}>
+            {s.account.onHold ? '▶ Resume' : '⏸ Hold'}
+          </Button>
+        )}
         {onSetStatus && (
           <Button size="sm" variant={problem ? 'danger' : 'ghost'} onClick={onSetStatus}>
             {gone ? 'Bring back' : problem ? 'Update status' : 'Report a problem'}

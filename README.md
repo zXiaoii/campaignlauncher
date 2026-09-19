@@ -225,6 +225,22 @@ after which the banner is gone for good; a second click is refused. No Reset dat
 anywhere, and the seed is untouched, so the day-one book stays available for a fresh
 database.
 
+**Prepared jobs are a registry** (`src/data/migrations.ts`): each bundles data Charles
+sent — a banned list, a book (rows of account / campaign / ad set), suppliers to put on
+hold, products declared killed — and shows as its own banner until applied once. Current
+jobs: the 16 Sep restriction wave, the Canada book (generated from the 18 Sep CSV), RHKA
+on hold, the AUS GO DGTL book (Snorestop / Curcuvera killed), and the UK update. They
+are order-independent: imports only add what is missing, and an account created from a
+supplier that is wholly on hold starts held.
+
+## Account hold
+
+An ad account can be **on hold** (Ad Accounts card: *⏸ Hold* / *▶ Resume*; with a supplier,
+market or search filter on, *⏸ Hold the n shown* does it in bulk). It keeps running, but
+every CBO on it is off the Next batch trigger and reads *⏸ Account on hold* in the
+workspace, in the *On hold* bucket. Separate from account health: a held account is
+healthy, just not a place new ad sets go.
+
 ## Killed CBOs
 
 **☠ Mark as killed** in the card menu (Charles only, confirm dialog) is for a CBO

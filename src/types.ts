@@ -98,6 +98,12 @@ export interface AdAccount {
   statusReason?: string
   statusChangedBy?: string
   statusChangedAt?: string
+  /**
+   * The account keeps running, but the team launches nothing new into it: every
+   * CBO on it is off the Next batch trigger, exactly as if each were held one by
+   * one. Healthy-or-not is a separate question (`status`).
+   */
+  onHold?: boolean
 }
 
 export interface Product {

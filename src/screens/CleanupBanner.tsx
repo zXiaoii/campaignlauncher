@@ -40,10 +40,19 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
   }, [db, applied, m.id])
 
   if (!plan || hidden) return null
-  const nothing = plan.retireIds.length === 0 && plan.record.length === 0 && plan.importItems.length === 0
+  const nothing =
+    plan.retireIds.length === 0 &&
+    plan.record.length === 0 &&
+    plan.importItems.length === 0 &&
+    plan.holdIds.length === 0 &&
+    plan.killIds.length === 0
   if (nothing) return null
+  const killing = plan.killIds.length > 0
 
   const retiring = plan.retireIds.length > 0 || plan.record.length > 0
+  const importing = plan.importItems.length > 0
+  const holding = plan.holdIds.length > 0
+  const heldCbos = db.campaigns.filter((c) => c.status === 'ACTIVE' && plan.holdIds.includes(c.adAccountId)).length
   const newCbos = plan.importItems.filter((i) => !i.campaignId).length
   const addedTo = plan.importItems.filter((i) => i.campaignId).length
   const adsets = plan.importItems.reduce((n, i) => n + i.adsets.length, 0)
@@ -66,7 +75,31 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               {plan.record.length > 0 && ` (+${plan.record.length} recorded)`}, kill their {killedCbos} {killedCbos === 1 ? 'CBO' : 'CBOs'}, and{' '}
             </>
           )}
-          import {m.bookLabel} — {importSentence}. Nothing existing is changed{retiring ? ' beyond that; history untouched' : ''}.
+          {holding && (
+            <>
+              put {plan.holdIds.length} {(m.holdSuppliers ?? []).join(' / ')} ad {plan.holdIds.length === 1 ? 'account' : 'accounts'} on
+              hold — their {heldCbos} {heldCbos === 1 ? 'CBO' : 'CBOs'} keep running but Next batch and the bulk trigger skip them; resume any
+              account from Ad Accounts.{' '}
+            </>
+          )}
+          {importing && (
+            <>
+              import {m.bookLabel} — {importSentence}.{' '}
+            </>
+          )}
+          {killing && (
+            <>
+              Mark {plan.killIds.length} {(m.killWords ?? []).join(' / ')} {plan.killIds.length === 1 ? 'CBO' : 'CBOs'} as killed
+              (revivable).{' '}
+            </>
+          )}
+          {plan.killBlocked.length > 0 && (
+            <>
+              <strong>{plan.killBlocked.join(', ')}</strong> still {plan.killBlocked.length === 1 ? 'has' : 'have'} a launch in flight and
+              will be left alone — cancel it first.{' '}
+            </>
+          )}
+          Nothing existing is deleted{retiring ? '; history untouched' : ''}.
         </span>
         <span className="flex-1" />
         <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)}>
@@ -82,8 +115,10 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
             if (
               !window.confirm(
                 `Apply "${m.title}" now? ${
-                  retiring ? `${plan.retireIds.length} accounts → off-boarded, ${killedCbos} CBOs → killed, ` : ''
-                }${plan.importItems.length} CBOs imported (${adsets} ad sets). Nothing that went live is deleted. This runs once.`,
+                  retiring ? `${plan.retireIds.length} accounts → off-boarded, ${killedCbos} CBOs → killed. ` : ''
+                }${holding ? `${plan.holdIds.length} accounts → on hold. ` : ''}${killing ? `${plan.killIds.length} CBOs → killed. ` : ''}${
+                  importing ? `${plan.importItems.length} CBOs imported (${adsets} ad sets). ` : ''
+                }Nothing that went live is deleted. This runs once.`,
               )
             ) {
               return
@@ -93,9 +128,15 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                 tone: 'success',
                 kind: 'Applied',
                 title: m.title,
-                body: `${retiring ? `${plan.retireIds.length} accounts retired, ` : ''}${plan.importItems.length} CBOs and ${adsets} ad sets imported${
-                  newAccounts ? `, ${newAccounts} new ad accounts created` : ''
-                }.`,
+                body: [
+                  retiring ? `${plan.retireIds.length} accounts retired` : '',
+                  holding ? `${plan.holdIds.length} accounts on hold` : '',
+                  killing ? `${plan.killIds.length} CBOs marked killed` : '',
+                  importing ? `${plan.importItems.length} CBOs and ${adsets} ad sets imported` : '',
+                  newAccounts ? `${newAccounts} new ad accounts created` : '',
+                ]
+                  .filter(Boolean)
+                  .join(', ') + '.',
                 ms: 12000,
               })
             }
@@ -128,6 +169,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               ].join('\n')}
             </Block>
           )}
+          {holding && (
+            <Block className="max-h-64 overflow-auto">
+              {[`PUT ON HOLD (${plan.holdIds.length})`, ...plan.holdIds.map((id) => `  ${adAccount(db, id)?.displayName ?? id}`)].join('\n')}
+            </Block>
+          )}
+          {importing && (
           <Block className="max-h-64 overflow-auto">
             {[
               `IMPORT (${plan.importItems.length})`,
@@ -140,6 +187,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               ...(plan.skipped.length ? ['', `SKIPPED (${plan.skipped.length})`, ...plan.skipped.map((s) => `  ${s.campaignName} — ${s.why}`)] : []),
             ].join('\n')}
           </Block>
+          )}
         </div>
       )}
     </div>

@@ -149,8 +149,9 @@ export function Workspace({
   // always the N the bulk button will launch into.
   const stateOf = (c: Campaign): Exclude<StateFilter, 'ALL'> => {
     if (c.status === 'KILLED') return 'KILLED'
-    // Cost-cap CBOs behave like on-hold ones for the trigger: hands off.
-    if (c.onHold || isCostCapCampaign(c.name)) return 'ON_HOLD'
+    // Cost-cap CBOs and CBOs on a held account behave like on-hold ones for the
+    // trigger: hands off.
+    if (c.onHold || isCostCapCampaign(c.name) || db.adAccounts.find((a) => a.id === c.adAccountId)?.onHold) return 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
     // What remains is cadence: the latest ad set went live too recently for the
@@ -459,6 +460,11 @@ function AccountContainer({
             </span>
           )}
           {!account.adAccountNumber && <Chip tone="danger">no account number</Chip>}
+          {account.onHold && (
+            <Chip tone="warn" title="Nothing new is launched into this account. Resume it in Ad Accounts.">
+              ⏸ on hold
+            </Chip>
+          )}
           <span className="ml-auto text-fg-secondary whitespace-nowrap">
             {campaigns.length} {campaigns.length === 1 ? 'CBO' : 'CBOs'}
           </span>
@@ -537,7 +543,8 @@ function CampaignCard({
   // A killed CBO has no live ad sets; its card shows the ones that went down with it.
   const live = killed ? adsetsInCampaign(db, campaign.id) : liveAdsets(db, campaign.id)
   const costCap = isCostCapCampaign(campaign.name)
-  const held = Boolean(campaign.onHold) || costCap
+  const accountHeld = Boolean(db.adAccounts.find((a) => a.id === campaign.adAccountId)?.onHold)
+  const held = Boolean(campaign.onHold) || costCap || accountHeld
   const history = adsetsInCampaign(db, campaign.id).filter(
     (a) => !OCCUPYING_STATUSES.includes(a.status),
   )
@@ -567,6 +574,10 @@ function CampaignCard({
         {costCap ? (
           <Chip tone="warn" title="Cost-cap CBO — tuned by hand. Next batch and the bulk trigger never touch it; launch into it from the drawer if you mean to.">
             $ Cost cap
+          </Chip>
+        ) : accountHeld && !campaign.onHold ? (
+          <Chip tone="warn" title="The whole ad account is on hold — nothing new is launched into it. Resume the account in Ad Accounts.">
+            ⏸ Account on hold
           </Chip>
         ) : (
           held && (
@@ -733,8 +744,10 @@ function CampaignCard({
                 {
                   label: held ? '▶ Resume new ad sets here' : '⏸ Stop new ad sets here',
                   separatorBefore: true,
-                  disabled: costCap,
-                  disabledReason: 'Cost-cap CBOs are recognised by their name and always kept off the trigger.',
+                  disabled: costCap || (accountHeld && !campaign.onHold),
+                  disabledReason: costCap
+                    ? 'Cost-cap CBOs are recognised by their name and always kept off the trigger.'
+                    : 'The whole ad account is on hold — resume it in Ad Accounts.',
                   onClick: () => {
                     if (setCampaignHold(campaign.id, !held)) {
                       onResult(

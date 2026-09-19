@@ -116,7 +116,7 @@ export function Dashboard({ onOpenAdset }: { onOpenAdset: (adsetId: string) => v
       ready: cbos.filter((cm) => !planNextBatch(db, cm.id, today).blockedReason).length,
       inFlight: cbos.reduce((n, cm) => n + plannedAdsets(db, cm.id).length, 0),
       full: cbos.filter((cm) => isCampaignFull(db, cm.id)).length,
-      onHold: cbos.filter((cm) => cm.onHold).length,
+      onHold: cbos.filter((cm) => cm.onHold || accounts.find((a) => a.id === cm.adAccountId)?.onHold).length,
       killed,
       launchedWeek: launchedWeek.filter((r) => accountIds.has(r.account.id)).length,
     }
