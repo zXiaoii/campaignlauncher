@@ -227,9 +227,12 @@ database.
 
 **Prepared jobs are a registry** (`src/data/migrations.ts`): each bundles data Charles
 sent — a banned list, a book (rows of account / campaign / ad set), suppliers to put on
-hold, products declared killed — and shows as its own banner until applied once. Current
-jobs: the 16 Sep restriction wave, the Canada book (generated from the 18 Sep CSV), RHKA
-on hold, the AUS GO DGTL book (Snorestop / Curcuvera killed), and the UK update. They
+hold, products declared killed, a market to **match** (active CBOs there that are not in
+the book are marked killed) — and shows as its own banner until applied once. Current
+jobs: the 16 Sep restriction wave (banned accounts + US book), the Canada book (generated
+from the 18 Sep CSV), RHKA on hold, the AUS GO DGTL book (Snorestop / Curcuvera killed),
+and **UK — match the 21 Sep export** (generated from that CSV; it supersedes the earlier
+UK jobs, which were built from partial pivot pastes). They
 are order-independent: imports only add what is missing, and an account created from a
 supplier that is wholly on hold starts held.
 

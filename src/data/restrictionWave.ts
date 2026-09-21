@@ -100,9 +100,13 @@ const US_ROWS: [account: string, campaign: string, adset: string][] = [
   ['#5341 - US | AD 17 - Danny [ROAS A] 11244 - PP - RHKA', 'MAIN CBO VitaSlim', '09/15/26 swipes'],
 ]
 
-const ALL_ROWS = [...UK_ROWS, ...US_ROWS]
+// The 16 Sep UK rows above are kept for the record but no longer imported: the
+// 21 Sep UK export (ukBook21Sep.ts) is the truth for UK now, and importing the older
+// list after it would bring back CBOs that have since stopped.
+void UK_ROWS
+const ALL_ROWS = [...US_ROWS]
 
-/** Everything the clean-up imports, as one export: the new UK book plus the US book. */
+/** What the clean-up imports: the US book. (UK is handled by the 21 Sep UK job.) */
 export const NEW_UK_EXPORT: MetaExport = {
   rows: ALL_ROWS.map(([account, campaign, adset]) => ({ account, campaign, adset })),
   columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' },

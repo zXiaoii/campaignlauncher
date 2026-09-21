@@ -573,7 +573,7 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
   const held = new Set(m.holdSuppliers ?? [])
   const words = (m.killWords ?? []).map((w) => productKey(w)).filter(Boolean)
-  const doomed =
+  const byWord =
     words.length === 0
       ? []
       : afterRetire.campaigns.filter((c) => {
@@ -581,6 +581,18 @@ export function planMigration(db: Db, id: string): MigrationPlan {
           const hay = productKey(`${c.name} ${afterRetire.products.find((p) => p.id === c.productId)?.name ?? ''}`)
           return words.some((w) => hay.includes(w))
         })
+  // "Make this market match the book": active CBOs there, on accounts still in
+  // play, that the book does not mention.
+  const inBook = new Set(groups.map((g) => g.existingId).filter((x): x is string => Boolean(x)))
+  const marketAccounts = new Set(
+    m.matchCountryId
+      ? afterRetire.adAccounts.filter((a) => a.countryId === m.matchCountryId && a.status !== 'OFFBOARDED').map((a) => a.id)
+      : [],
+  )
+  const notInBook = afterRetire.campaigns.filter(
+    (c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && !inBook.has(c.id),
+  )
+  const doomed = [...new Map([...byWord, ...notInBook].map((c) => [c.id, c])).values()]
   return {
     killIds: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length === 0).map((c) => c.id),
     killBlocked: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length > 0).map((c) => c.name),

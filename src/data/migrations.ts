@@ -9,7 +9,7 @@ import type { MetaExport, PastedAccount } from '../importing'
 import { AUS_EXPORT } from './ausImport'
 import { CANADA_EXPORT } from './canadaImport'
 import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
-import { UK2_EXPORT } from './ukImport'
+import { UK_21_SEP_EXPORT } from './ukBook21Sep'
 
 export interface PreparedMigration {
   id: string
@@ -30,6 +30,11 @@ export interface PreparedMigration {
    * contains one of these words is marked killed (history kept, revivable).
    */
   killWords?: string[]
+  /**
+   * The book is the complete picture of this market (country id): every active CBO
+   * there that is not in it is marked killed. CBO level only.
+   */
+  matchCountryId?: string
 }
 
 const NO_BOOK: MetaExport = { rows: [], columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' }, accounts: [] }
@@ -39,7 +44,7 @@ export const MIGRATIONS: PreparedMigration[] = [
     id: RESTRICTION_WAVE_ID,
     chip: 'Prepared clean-up · 16 Sep',
     title: 'Restriction wave',
-    bookLabel: 'the new UK and US book',
+    bookLabel: 'the US book',
     reason: RESTRICTION_WAVE_REASON,
     banned: BANNED_ACCOUNTS,
     book: NEW_UK_EXPORT,
@@ -77,14 +82,22 @@ export const MIGRATIONS: PreparedMigration[] = [
     book: AUS_EXPORT,
     killWords: ['Snorestop', 'Curcuvera'],
   },
+  // The 19 Sep "UK update" job (pivot fragments, ukImport.ts) is retired: the 21 Sep
+  // export below is complete and supersedes it. If it was already applied, the match
+  // step below cleans up whatever it added that no longer runs.
   {
-    id: '2026-09-19-uk-book',
-    chip: 'Prepared import · 19 Sep',
-    title: 'UK update',
-    bookLabel: 'the UK GO DGTL and AD 23 updates from your 18–19 Sep pivots',
+    // Charles, 21 Sep 2026: "update my UK store campaigns", with a full Ads Manager
+    // export. UK is made to match it: new CBOs and ad sets added, active UK CBOs that
+    // are not in the file marked killed (revivable). Ad sets are never archived —
+    // the export covers one day of delivery, not every ad set that exists.
+    id: '2026-09-21-uk-match',
+    chip: 'Prepared update · 21 Sep',
+    title: 'UK — match the 21 Sep export',
+    bookLabel: 'the UK book from your 21 Sep export',
     reason: '',
     banned: [],
-    book: UK2_EXPORT,
+    book: UK_21_SEP_EXPORT,
+    matchCountryId: 'c_uk',
   },
 ]
 

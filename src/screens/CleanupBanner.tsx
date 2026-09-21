@@ -89,8 +89,11 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           )}
           {killing && (
             <>
-              Mark {plan.killIds.length} {(m.killWords ?? []).join(' / ')} {plan.killIds.length === 1 ? 'CBO' : 'CBOs'} as killed
-              (revivable).{' '}
+              Mark {plan.killIds.length}{' '}
+              {m.matchCountryId
+                ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} not in the export`
+                : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
+              as killed (revivable) — see the list under Show details.{' '}
             </>
           )}
           {plan.killBlocked.length > 0 && (
@@ -166,6 +169,18 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                 `RECORD AS OFF-BOARDED (${plan.record.length})`,
                 ...plan.record.map((r) => `  ${r.displayName}`),
                 ...(plan.unplaced.length ? ['', `LEFT ALONE — no market in the name (${plan.unplaced.length})`, ...plan.unplaced.map((n) => `  ${n}`)] : []),
+              ].join('\n')}
+            </Block>
+          )}
+          {(killing || plan.killBlocked.length > 0) && (
+            <Block className="max-h-64 overflow-auto">
+              {[
+                `MARK AS KILLED (${plan.killIds.length})`,
+                ...plan.killIds.map((id) => {
+                  const c = db.campaigns.find((x) => x.id === id)
+                  return `  ${c?.name ?? id}   · ${adAccount(db, c?.adAccountId)?.displayName ?? ''}`
+                }),
+                ...(plan.killBlocked.length ? ['', `LEFT ALONE — launch in flight (${plan.killBlocked.length})`, ...plan.killBlocked.map((n) => `  ${n}`)] : []),
               ].join('\n')}
             </Block>
           )}
