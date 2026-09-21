@@ -72,7 +72,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {retiring && (
             <>
               retire {plan.retireIds.length} banned {plan.retireIds.length === 1 ? 'account' : 'accounts'}
-              {plan.record.length > 0 && ` (+${plan.record.length} recorded)`}, kill their {killedCbos} {killedCbos === 1 ? 'CBO' : 'CBOs'}, and{' '}
+              {plan.record.length > 0 && ` (+${plan.record.length} recorded)`} and kill their {killedCbos} {killedCbos === 1 ? 'CBO' : 'CBOs'}.{' '}
             </>
           )}
           {holding && (
@@ -90,8 +90,8 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {killing && (
             <>
               Mark {plan.killIds.length}{' '}
-              {m.matchCountryId
-                ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} not in the export`
+              {m.matchCountryIds?.length
+                ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} no longer running (not in the exports)`
                 : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
               as killed (revivable) — see the list under Show details.{' '}
             </>

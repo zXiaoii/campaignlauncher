@@ -1,15 +1,13 @@
 // Prepared one-click jobs. Each bundles data Charles sent (a banned-accounts list,
 // an Ads Manager export, or both) so that applying it on the live database is a
 // single click on a banner instead of file handling. `MIGRATION_APPLY` in the store
-// runs one: retire the banned accounts (if any), then import the book. Each applies
-// once — the activity log records it — and only ever adds or retires, never deletes
-// anything that went live.
+// runs one: retire the banned accounts (if any), hold suppliers, import the book,
+// then mark as killed whatever the job says is no longer running. Each applies
+// once — the activity log records it — and nothing that went live is ever deleted.
 
 import type { MetaExport, PastedAccount } from '../importing'
-import { AUS_EXPORT } from './ausImport'
-import { CANADA_EXPORT } from './canadaImport'
-import { BANNED_ACCOUNTS, NEW_UK_EXPORT, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
-import { UK_21_SEP_EXPORT } from './ukBook21Sep'
+import { ALL_STORES_21_SEP } from './allStores21Sep'
+import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
   id: string
@@ -31,37 +29,30 @@ export interface PreparedMigration {
    */
   killWords?: string[]
   /**
-   * The book is the complete picture of this market (country id): every active CBO
-   * there that is not in it is marked killed. CBO level only.
+   * The book is the complete picture of these markets (country ids): every active
+   * CBO there that is not in it is marked killed. CBO level only — ad sets are never
+   * archived, because a one-day export lists what spent, not everything that exists.
    */
-  matchCountryId?: string
+  matchCountryIds?: string[]
 }
 
 const NO_BOOK: MetaExport = { rows: [], columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' }, accounts: [] }
 
 export const MIGRATIONS: PreparedMigration[] = [
   {
+    // 16 Sep 2026: Meta banned 52 ad accounts. Retire-only now — the books it used
+    // to import (UK 16 Sep, US #5341) are superseded by the all-stores job below.
     id: RESTRICTION_WAVE_ID,
     chip: 'Prepared clean-up · 16 Sep',
     title: 'Restriction wave',
-    bookLabel: 'the US book',
+    bookLabel: '',
     reason: RESTRICTION_WAVE_REASON,
     banned: BANNED_ACCOUNTS,
-    book: NEW_UK_EXPORT,
+    book: NO_BOOK,
   },
   {
-    id: '2026-09-18-canada-book',
-    chip: 'Prepared import · 18 Sep',
-    title: 'Canada book',
-    bookLabel: 'the Canada book from your 18 Sep export',
-    reason: '',
-    banned: [],
-    book: CANADA_EXPORT,
-  },
-  {
-    // Charles, 19 Sep 2026: "ad accounts in RHKA put those on hold". Accounts the
-    // Canada import creates afterwards inherit the hold, so the order of the two
-    // clicks does not matter.
+    // Charles, 19 Sep 2026: "ad accounts in RHKA put those on hold". A single
+    // account is resumed from its card in Ad Accounts or its header in the Workspace.
     id: '2026-09-19-rhka-hold',
     chip: 'Prepared change · 19 Sep',
     title: 'RHKA on hold',
@@ -72,32 +63,20 @@ export const MIGRATIONS: PreparedMigration[] = [
     holdSuppliers: ['RHKA'],
   },
   {
-    // Charles, 19 Sep 2026: the AUS GO DGTL book, and "snorestop and curcuvera is killed".
-    id: '2026-09-19-aus-book',
-    chip: 'Prepared import · 19 Sep',
-    title: 'AUS book',
-    bookLabel: 'the AUS GO DGTL book from your pivots',
-    reason: '',
-    banned: [],
-    book: AUS_EXPORT,
-    killWords: ['Snorestop', 'Curcuvera'],
-  },
-  // The 19 Sep "UK update" job (pivot fragments, ukImport.ts) is retired: the 21 Sep
-  // export below is complete and supersedes it. If it was already applied, the match
-  // step below cleans up whatever it added that no longer runs.
-  {
-    // Charles, 21 Sep 2026: "update my UK store campaigns", with a full Ads Manager
-    // export. UK is made to match it: new CBOs and ad sets added, active UK CBOs that
-    // are not in the file marked killed (revivable). Ad sets are never archived —
-    // the export covers one day of delivery, not every ad set that exists.
-    id: '2026-09-21-uk-match',
+    // Charles, 21 Sep 2026: four Ads Manager exports, one per store — "import them
+    // all, kill what's already killed, so I can assign tasks easily". Every market is
+    // made to match its file. Supersedes the Canada (18 Sep), AUS (19 Sep) and UK
+    // (19 and 21 Sep) jobs; if any of those already ran, the match step cleans up
+    // whatever they added that is no longer running.
+    id: '2026-09-21-all-stores',
     chip: 'Prepared update · 21 Sep',
-    title: 'UK — match the 21 Sep export',
-    bookLabel: 'the UK book from your 21 Sep export',
+    title: 'All stores — match the 21 Sep exports',
+    bookLabel: 'UK, Canada, AUS and US from your four 21 Sep exports',
     reason: '',
     banned: [],
-    book: UK_21_SEP_EXPORT,
-    matchCountryId: 'c_uk',
+    book: ALL_STORES_21_SEP,
+    killWords: ['Snorestop', 'Curcuvera'],
+    matchCountryIds: ['c_uk', 'c_ca', 'c_au', 'c_us'],
   },
 ]
 

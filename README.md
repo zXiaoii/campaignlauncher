@@ -216,8 +216,9 @@ CBOs then come in through **Add existing CBO → Paste a Meta export**, which cr
 unknown ad accounts on the way in (market and supplier guessed from the name, editable
 per card) and infers NEW / SWE / REL / DIT from a name's leading code.
 
-**Prepared clean-up (16 Sep 2026).** The banned list and the new UK + US book are also
-bundled in code (`src/data/restrictionWave.ts`). Charles sees a banner above the
+**Prepared clean-up (16 Sep 2026).** The banned list is bundled in code
+(`src/data/restrictionWave.ts`; the UK + US book it once carried is kept there for the
+record but no longer imported — the 21 Sep exports below are the truth). Charles sees a banner above the
 workspace that spells out, against the live database, exactly what one click will do —
 retire n accounts, kill n CBOs, import n CBOs — with the full lists behind *Show details*.
 **Apply now** runs the retire and the import as one write and logs `MIGRATION_APPLIED`,
@@ -227,14 +228,17 @@ database.
 
 **Prepared jobs are a registry** (`src/data/migrations.ts`): each bundles data Charles
 sent — a banned list, a book (rows of account / campaign / ad set), suppliers to put on
-hold, products declared killed, a market to **match** (active CBOs there that are not in
+hold, products declared killed, markets to **match** (active CBOs there that are not in
 the book are marked killed) — and shows as its own banner until applied once. Current
-jobs: the 16 Sep restriction wave (banned accounts + US book), the Canada book (generated
-from the 18 Sep CSV), RHKA on hold, the AUS GO DGTL book (Snorestop / Curcuvera killed),
-and **UK — match the 21 Sep export** (generated from that CSV; it supersedes the earlier
-UK jobs, which were built from partial pivot pastes). They
-are order-independent: imports only add what is missing, and an account created from a
-supplier that is wholly on hold starts held.
+jobs, three: the 16 Sep restriction wave (retires the banned accounts; imports nothing),
+RHKA on hold, and **All stores — match the 21 Sep exports**
+(`src/data/allStores21Sep.ts`, generated from the four Ads Manager workbooks: UK 16 CBOs,
+CANADA 17, AUSTRALIA 15, US 1 at campaign level, so it arrives with the *ad sets not
+imported yet* placeholder). Those exports are spend reports for the day, so a CBO in one
+of the four markets that is not in them is no longer running and is marked killed
+(revivable). It replaces every earlier per-market book job, which were built from partial
+pivot pastes. Jobs are order-independent: imports only add what is missing, and an account
+created from a supplier that is wholly on hold starts held.
 
 ## Products Live — the funnels & store seat
 
@@ -256,7 +260,9 @@ An ad account can be **on hold** (Ad Accounts card: *⏸ Hold* / *▶ Resume*; w
 market or search filter on, *⏸ Hold the n shown* does it in bulk). It keeps running, but
 every CBO on it is off the Next batch trigger and reads *⏸ Account on hold* in the
 workspace, in the *On hold* bucket. Separate from account health: a held account is
-healthy, just not a place new ad sets go.
+healthy, just not a place new ad sets go. To take **one** account off hold — say a single
+RHKA account that is fine again — press **▶ Resume** on its header in the workspace (or on
+its card in Ad Accounts); the rest of the supplier stays held.
 
 ## Killed CBOs
 

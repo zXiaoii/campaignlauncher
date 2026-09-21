@@ -568,7 +568,13 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   // treated as "already here" for a same-named new one on a fresh account.
   const afterRetire =
     retireIds.length > 0 || record.length > 0
-      ? reducer(db, { type: 'ACCOUNTS_RETIRE', accountIds: retireIds, reason: m.reason, alsoRecord: record, actorId: 'u_charles' })
+      ? reducer(db, {
+          type: 'ACCOUNTS_RETIRE',
+          accountIds: retireIds,
+          reason: m.reason,
+          alsoRecord: record,
+          actorId: db.users.find((u) => u.role === 'MEDIA_BUYER' && u.active)?.id ?? '',
+        })
       : db
   const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
   const held = new Set(m.holdSuppliers ?? [])
@@ -584,10 +590,9 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   // "Make this market match the book": active CBOs there, on accounts still in
   // play, that the book does not mention.
   const inBook = new Set(groups.map((g) => g.existingId).filter((x): x is string => Boolean(x)))
+  const matchMarkets = new Set(m.matchCountryIds ?? [])
   const marketAccounts = new Set(
-    m.matchCountryId
-      ? afterRetire.adAccounts.filter((a) => a.countryId === m.matchCountryId && a.status !== 'OFFBOARDED').map((a) => a.id)
-      : [],
+    afterRetire.adAccounts.filter((a) => matchMarkets.has(a.countryId) && a.status !== 'OFFBOARDED').map((a) => a.id),
   )
   const notInBook = afterRetire.campaigns.filter(
     (c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && !inBook.has(c.id),

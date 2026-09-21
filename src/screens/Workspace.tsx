@@ -426,6 +426,7 @@ function AccountContainer({
   onResult: (text: string) => void
 }) {
   const { db } = useStore()
+  const { setAccountsHold } = useActions()
   const bento = view === 'bento'
 
   return (
@@ -445,13 +446,13 @@ function AccountContainer({
           type="button"
           onClick={onToggle}
           aria-expanded={open}
-          className="flex items-center gap-2.5 flex-1 min-w-0 h-8 text-left cursor-pointer"
+          className="flex items-center gap-2.5 flex-1 min-w-0 h-8 overflow-hidden text-left cursor-pointer"
         >
           <span className="w-2.5 shrink-0 text-fg-tertiary">{open ? '▾' : '▸'}</span>
-          <span className={cn(mono, 'truncate font-medium text-[12.5px]')}>
+          <span className={cn(mono, 'truncate min-w-[6rem] font-medium text-[12.5px]')}>
             {account.displayName}
           </span>
-          <span className="text-fg-tertiary whitespace-nowrap">
+          <span className="text-fg-tertiary whitespace-nowrap max-[900px]:hidden">
             {account.supplierRef ?? account.store}
           </span>
           {isAccountProblem(account.status) && (
@@ -469,6 +470,18 @@ function AccountContainer({
             {campaigns.length} {campaigns.length === 1 ? 'CBO' : 'CBOs'}
           </span>
         </button>
+        {!readOnly && onLaunch && account.onHold && (
+          <Button
+            size="sm"
+            variant="ghost"
+            title="Take just this account off hold — Next batch can target its CBOs again. The other held accounts stay held."
+            onClick={() => {
+              if (setAccountsHold([account.id], false)) onResult(`${account.displayName} resumed — Next batch can target its CBOs again.`)
+            }}
+          >
+            ▶ Resume
+          </Button>
+        )}
         {!readOnly && onLaunch && (
           <Button size="sm" onClick={() => onLaunch({ adAccountId: account.id })}>
             + Launch here

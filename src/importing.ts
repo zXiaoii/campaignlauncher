@@ -60,7 +60,8 @@ export function parseAdsetLine(raw: string): ParsedAdset | null {
     ? 'DEEP_ITERATION'
     : words.includes('iter')
       ? 'ITERATION'
-      : words.includes('variat')
+      : // "variation", "variations" and the team's "varations"
+        /vari?at/.test(words)
         ? 'VARIATION'
         : words.includes('pure')
           ? 'SWIPES'
