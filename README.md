@@ -230,15 +230,18 @@ database.
 sent — a banned list, a book (rows of account / campaign / ad set), suppliers to put on
 hold, products declared killed, markets to **match** (active CBOs there that are not in
 the book are marked killed) — and shows as its own banner until applied once. Current
-jobs, three: the 16 Sep restriction wave (retires the banned accounts; imports nothing),
-RHKA on hold, and **All stores — match the 21 Sep exports**
-(`src/data/allStores21Sep.ts`, generated from the four Ads Manager workbooks: UK 16 CBOs,
-CANADA 17, AUSTRALIA 15, US 1 at campaign level, so it arrives with the *ad sets not
-imported yet* placeholder). Those exports are spend reports for the day, so a CBO in one
-of the four markets that is not in them is no longer running and is marked killed
-(revivable). It replaces every earlier per-market book job, which were built from partial
-pivot pastes. Jobs are order-independent: imports only add what is missing, and an account
-created from a supplier that is wholly on hold starts held.
+jobs, four: the 16 Sep restriction wave (retires the banned accounts; imports nothing),
+RHKA on hold, **Canada & US — match the 21 Sep exports** (`src/data/allStores21Sep.ts`:
+CANADA 17 CBOs, US 1 at campaign level, so it arrives with the *ad sets not imported yet*
+placeholder) and **UK & AUS — match the 22 Sep exports** (`src/data/allStores22Sep.ts`:
+UK 15 CBOs, AUSTRALIA 9). Each book module is generated from the Ads Manager workbooks
+(one entry per row, names verbatim); a market lives in exactly one job, so the jobs never
+disagree whichever is applied first. The exports are spend reports for the day, so a CBO
+in a matched market that is not in them is no longer running and is marked killed
+(revivable); ad sets are never archived by a match. These replace every earlier
+per-market book job, which were built from partial pivot pastes. Jobs are
+order-independent: imports only add what is missing, and an account created from a
+supplier that is wholly on hold starts held.
 
 ## Products Live — the funnels & store seat
 

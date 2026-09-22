@@ -1,55 +1,13 @@
-// Every store as of 21 Sep 2026 - the four Ads Manager exports Charles sent
-// ("this all of my adsets and campaigns each store"). GENERATED from the workbooks,
-// one entry per row, names verbatim from Meta - do not hand-edit; regenerate from
-// new exports instead. An empty ad-set name means the export was campaign level:
-// the CBO comes in with the "ad sets not imported yet" placeholder.
+// Canada and the US as of 21 Sep 2026 - two of the four Ads Manager exports Charles
+// sent ("this all of my adsets and campaigns each store"). The UK and AUS ones from
+// that day are superseded by allStores22Sep.ts. GENERATED from the workbooks, one
+// entry per row, names verbatim from Meta - do not hand-edit; regenerate from new
+// exports instead. An empty ad-set name means the export was campaign level: the CBO
+// comes in with the "ad sets not imported yet" placeholder.
 
 import type { MetaExport } from '../importing'
 
 const ROWS: [account: string, campaign: string, adset: string][] = [
-  // UK - Untitled-report (2).xlsx - 41 rows
-  ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/16/26 iteration'],
-  ['#7759 - UK | AD 23 - Danny [ROAS A] 11343 - PP - RHKA', 'MAIN CBO FreshGaze 23', '09/17/26 Swipes'],
-  ['50643 reliore [GO DGTL]', 'REL Revida', '09/16/26 swipes'],
-  ['50643 reliore [GO DGTL]', 'REL Bellavren', '09/16/26 swipes'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 20'],
-  ['50657 Reliore 2 [GO DGTL]', 'MAIN CBO EASEFLOW GO R2', '09/19/26 swipes'],
-  ['#7759 - UK | AD 23 - Danny [ROAS A] 11343 - PP - RHKA', 'MAIN CBO ENERGYSAVE', '09/14/26 Swipes'],
-  ['50656 Reliore [GO DGTL]', 'REL AFFINERA RETARGET', '09/19/26 iteration'],
-  ['50643 reliore [GO DGTL]', 'COSTCAP REL BELLAVREN', '09/16/26 swipes - Copy'],
-  ['#3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA', 'MAIN CBO Lidlift', '09/16/26 pure swipes'],
-  ['50656 Reliore [GO DGTL]', 'SWE Revida', '09/19/26 pure swipes'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 36 - flexi'],
-  ['50656 Reliore [GO DGTL]', 'DIR Ozempil 19', '09/15/26 iteration'],
-  ['50656 Reliore [GO DGTL]', 'SWE Revida', '09/17/26 curiosity'],
-  ['50656 Reliore [GO DGTL]', 'MAIN CBO MiteGuard 50656', '09/20/26 Swipes'],
-  ['50643 reliore [GO DGTL]', 'REL Bellavren', '09/16/26 swipes + playbook'],
-  ['50656 Reliore [GO DGTL]', 'DIR OZEMPIL COSTCAP', '09/15/26 iteration - Copy'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 11'],
-  ['50657 Reliore 2 [GO DGTL]', 'MAIN CBO BeeSpray GO DGTL r2', '09/20/26 swipes'],
-  ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/20/26 swipes + playbook'],
-  ['50643 reliore [GO DGTL]', 'REL Bellavren', '09/17/26 swipes + playbook'],
-  ['#3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA', 'MAIN CBO Lidlift', '09/15/26 pure swipes'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 42 - flexivita'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 8 - flexivita'],
-  ['50643 reliore [GO DGTL]', 'DIR Ozempil', '09/16/26 swipes + playbook'],
-  ['50643 reliore [GO DGTL]', 'REL Revida', '09/16/26 swipes + playbook'],
-  ['#3396 - UK | AD 7 - Danny [ROAS A] 9141 - PP - RHKA', 'MAIN CBO Lidlift', '09/08/26'],
-  ['50656 Reliore [GO DGTL]', 'REL AFFINERA RETARGET', '09/19/26 swipes'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 6 flexivita'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 9 flexivita'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 40 flexivita'],
-  ['50643 reliore [GO DGTL]', 'REL Revida', '09/21/26 swipes'],
-  ['50656 Reliore [GO DGTL]', 'DIR Ozempil 19', '09/21/26 iteration'],
-  ['#7759 - UK | AD 23 - Danny [ROAS A] 11343 - PP - RHKA', 'MAIN CBO ENERGYSAVE', '09/17/26 swipes + playbook'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 10 flexivita'],
-  ['50643 reliore [GO DGTL]', 'REL Bellavren', '09/17/26 swipes + playbook'],
-  ['50656 Reliore [GO DGTL]', 'DIR Ozempil 19', '09/16/26 swipes + playbook'],
-  ['50656 Reliore [GO DGTL]', 'DIR Ozempil 19', '09/17/26 swipes + playbook'],
-  ['#8185 - UK | AD 24 - Danny [ROAS A] 11281 - PP - RHKA', 'SWE Energysave 23', '09/16/26 - Copy'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 47 - flexivita'],
-  ['#2808 - UK | AD 1 - Danny [ROAS A] 8357 - PP - RHKA', 'MAIN CBO Flexivita', 'test 48 - Video UGC Ad'],
-
   // CANADA - Untitled-report-Sep-21-2026 (2).xlsx - 45 rows
   ['#4286 - CANADA | AD 1 - Danny [ROAS A] 10170 - PP - RHKA', 'P00041 - Bellavren™ Spray | MAR €19,52| BER 1,26 - Copy', 'Test 1 Bellavren'],
   ['#9570 - CANADA | AD 3 - Danny [ROAS A] 10172 - PP - RHKA', 'P00013 - Prosta Vita™ | MAR €24,84 | BER 1,21 - Copy', 'test 4 Prosta'],
@@ -96,32 +54,6 @@ const ROWS: [account: string, campaign: string, adset: string][] = [
   ['#8238 - CANADA | AD 4- Danny [ROAS A] 10210 - PP - RHKA', 'P00012 - Flexi Vita™ | €MAR 27,80 | BER 1,21 - Copy', 'test 3 FlexiVita'],
   ['#9570 - CANADA | AD 3 - Danny [ROAS A] 10172 - PP - RHKA', 'P00013 - Prosta Vita™ | MAR €24,84 | BER 1,21 - Copy', 'test 6 Prosta'],
   ['#4286 - CANADA | AD 1 - Danny [ROAS A] 10170 - PP - RHKA', 'P00041 - Bellavren™ Spray | MAR €19,52| BER 1,26 - Copy', 'Test 4 Bellavren'],
-
-  // AUSTRALIA - Untitled-report (3).xlsx - 24 rows
-  ['50659 Aurmacy [GO DGTL]', 'NEW CBO Vitalith', '09/16/26'],
-  ['50647 aurmacy [GO DGTL]', 'NEW CBO OmegaMax', '09/19/26 swipes + playbook'],
-  ['50658 Aurmacy [GO DGTL]', 'SWE Bellavren 50658', '09/19/26 pure swipes'],
-  ['50659 Aurmacy [GO DGTL]', 'SWE VItalith COSTCAP', '09/16/26 - Copy'],
-  ['50647 aurmacy [GO DGTL]', 'MAIN CBO HemEase', '09/21/26 swipes'],
-  ['50647 aurmacy [GO DGTL]', 'MAIN CBO DermUltra', '09/21/26 swipes'],
-  ['50658 Aurmacy [GO DGTL]', 'MAIN CBO OmegaMax GO', '09/16/26 iterations'],
-  ['50675 Aurmacy 5 [GO DGTL]', 'MAIN CBO Bellavren GO', '09/18/26 varations'],
-  ['50658 Aurmacy [GO DGTL]', 'MAIN CBO OmegaMax GO', '09/16/26 swipes'],
-  ['50659 Aurmacy [GO DGTL]', 'SWE Revida GO50659', '09/18/26 swipes + playbook'],
-  ['50674 Aurmacy 4 [GO DGTL]', 'MAIN CBO Revida GO', '09/16/26 swipes'],
-  ['50675 Aurmacy 5 [GO DGTL]', 'MAIN CBO Bellavren GO', '09/19/26 swipes + playbook'],
-  ['50674 Aurmacy 4 [GO DGTL]', 'SWE Omegamax', '09/16/26 swipes'],
-  ['50658 Aurmacy [GO DGTL]', 'SWE Omegamax', '09/16/26 iterations'],
-  ['50659 Aurmacy [GO DGTL]', 'NEW CBO DentureFix 50659', '09/19/26'],
-  ['50675 Aurmacy 5 [GO DGTL]', 'MAIN CBO LymphaFlow GO 5', '09/20/26 swipes'],
-  ['50658 Aurmacy [GO DGTL]', 'SWE Omegamax', '09/17/26 iteration'],
-  ['50675 Aurmacy 5 [GO DGTL]', 'MAIN CBO HearCtreme GO 5', '09/20/26 swipes'],
-  ['50658 Aurmacy [GO DGTL]', 'SWE Omegamax', '09/16/26 swipes'],
-  ['50658 Aurmacy [GO DGTL]', 'MAIN CBO OmegaMax GO', '09/17/26 iteration'],
-  ['50659 Aurmacy [GO DGTL]', 'NEW CBO Vitalith', '09/17/26 swipes + playbook'],
-  ['50658 Aurmacy [GO DGTL]', 'SWE Omegamax', '09/19/26 swipes + playbook'],
-  ['50674 Aurmacy 4 [GO DGTL]', 'MAIN CBO Revida GO', '09/16/26 Iterations'],
-  ['50674 Aurmacy 4 [GO DGTL]', 'MAIN CBO Revida GO', '09/18/26 Iterations 2'],
 
   // US - Untitled-report-Sep-21-2026.xlsx (campaign level: no ad-set names in the file) -  rows
   ['50662 Amermacy 2 [GO DGTL]', 'MAIN CBO VaricleX', ''],

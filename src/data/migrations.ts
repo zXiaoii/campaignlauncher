@@ -7,6 +7,7 @@
 
 import type { MetaExport, PastedAccount } from '../importing'
 import { ALL_STORES_21_SEP } from './allStores21Sep'
+import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -64,19 +65,34 @@ export const MIGRATIONS: PreparedMigration[] = [
   },
   {
     // Charles, 21 Sep 2026: four Ads Manager exports, one per store — "import them
-    // all, kill what's already killed, so I can assign tasks easily". Every market is
+    // all, kill what's already killed, so I can assign tasks easily". Each market is
     // made to match its file. Supersedes the Canada (18 Sep), AUS (19 Sep) and UK
     // (19 and 21 Sep) jobs; if any of those already ran, the match step cleans up
-    // whatever they added that is no longer running.
+    // whatever they added that is no longer running. The UK and AUS halves moved to
+    // the 22 Sep job below when newer exports arrived, so the two jobs never
+    // disagree about a market whichever is applied first.
     id: '2026-09-21-all-stores',
     chip: 'Prepared update · 21 Sep',
-    title: 'All stores — match the 21 Sep exports',
-    bookLabel: 'UK, Canada, AUS and US from your four 21 Sep exports',
+    title: 'Canada & US — match the 21 Sep exports',
+    bookLabel: 'Canada and US from your 21 Sep exports',
     reason: '',
     banned: [],
     book: ALL_STORES_21_SEP,
     killWords: ['Snorestop', 'Curcuvera'],
-    matchCountryIds: ['c_uk', 'c_ca', 'c_au', 'c_us'],
+    matchCountryIds: ['c_ca', 'c_us'],
+  },
+  {
+    // Charles, 22 Sep 2026: "i will give now all the campaigns and adsets of our
+    // stores" — UK ("update them all") and AUS so far. Markets are added here as
+    // their exports arrive; a market not listed is left to the 21 Sep job.
+    id: '2026-09-22-all-stores',
+    chip: 'Prepared update · 22 Sep',
+    title: 'UK & AUS — match the 22 Sep exports',
+    bookLabel: 'UK and AUS from your 22 Sep exports',
+    reason: '',
+    banned: [],
+    book: ALL_STORES_22_SEP,
+    matchCountryIds: ['c_uk', 'c_au'],
   },
 ]
 
