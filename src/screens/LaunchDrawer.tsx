@@ -549,17 +549,18 @@ export function LaunchDrawer({
                 <option value="">Select a CBO…</option>
                 {accountCampaigns.map((c) => {
                   const used = slotsUsed(db, c.id)
-                  const full = used >= MAX_ADSETS_PER_CAMPAIGN
+                  // A TEST ABO campaign has no four-ad-set limit.
+                  const full = c.campaignType !== 'TEST' && used >= MAX_ADSETS_PER_CAMPAIGN
                   return (
                     <option key={c.id} value={c.id} disabled={full}>
-                      {c.name} — {used}/{MAX_ADSETS_PER_CAMPAIGN}
+                      {c.name} — {c.campaignType === 'TEST' ? used : `${used}/${MAX_ADSETS_PER_CAMPAIGN}`}
                       {full ? ' (full)' : ''}
                     </option>
                   )
                 })}
               </select>
             </Field>
-            {destCampaign && slotsUsed(db, destCampaign.id) >= MAX_ADSETS_PER_CAMPAIGN && (
+            {destCampaign && destCampaign.campaignType !== 'TEST' && slotsUsed(db, destCampaign.id) >= MAX_ADSETS_PER_CAMPAIGN && (
               <Callout tone="danger">
                 <strong>{destCampaign.name} is full.</strong> A CBO holds a maximum of{' '}
                 {MAX_ADSETS_PER_CAMPAIGN} ad sets.{' '}

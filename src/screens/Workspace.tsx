@@ -34,6 +34,7 @@ import {
   CAMPAIGN_TYPE_COLOR,
   CampaignTypeChip,
   isAccountProblem,
+  ReviewChip,
 } from '../labels'
 import { isPlaceholderAdset } from '../importing'
 import { isCostCapCampaign, MAX_ADSETS_PER_CAMPAIGN } from '../naming'
@@ -54,6 +55,7 @@ import { planNextBatch, useActions, useStore } from '../store'
 import type { AdAccount, Adset, Campaign, CampaignType } from '../types'
 import { ImportDrawer } from './ImportDrawer'
 import type { LaunchIntent } from './LaunchDrawer'
+import { ReviewDrawer } from './ReviewDrawer'
 
 type View = 'grid' | 'bento' | 'table'
 
@@ -131,6 +133,7 @@ export function Workspace({
   const { nextBatch } = useActions()
   const [result, setResult] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const canNext = !readOnly && Boolean(onLaunch)
 
   const country = db.countries.find((c) => c.id === countryId) ?? db.countries[0]
@@ -152,6 +155,8 @@ export function Workspace({
     // Cost-cap CBOs and CBOs on a held account behave like on-hold ones for the
     // trigger: hands off.
     if (c.onHold || isCostCapCampaign(c.name) || db.adAccounts.find((a) => a.id === c.adAccountId)?.onHold) return 'ON_HOLD'
+    // A TEST ABO campaign takes batches from reviews only — hands off for the trigger.
+    if (c.campaignType === 'TEST') return plannedAdsets(db, c.id).length > 0 ? 'IN_FLIGHT' : 'ON_HOLD'
     if (isCampaignFull(db, c.id)) return 'FULL'
     if (plannedAdsets(db, c.id).length > 0) return 'IN_FLIGHT'
     // What remains is cadence: the latest ad set went live too recently for the
@@ -234,6 +239,14 @@ export function Workspace({
     <>
       <PageHead title={title} sub={sub}>
         {canNext && (
+          <Button
+            onClick={() => setReviewing(true)}
+            title="Upload the analyzer's Meta Ads Review workbook: updates every CBO's status, marks the KILL ones killed and assigns the new test batches."
+          >
+            ◎ Apply review
+          </Button>
+        )}
+        {canNext && (
           <Button onClick={() => setImporting(true)} title="Bring a CBO that already runs in Meta into the workspace — no reset.">
             ↓ Add existing CBO
           </Button>
@@ -241,6 +254,7 @@ export function Workspace({
       </PageHead>
 
       {importing && <ImportDrawer countryId={country.id} onClose={() => setImporting(false)} />}
+      {reviewing && <ReviewDrawer onClose={() => setReviewing(false)} />}
 
       {result && (
         <Callout className="border-l-success">
@@ -347,6 +361,7 @@ export function Workspace({
             { value: ALL as CampaignType | typeof ALL, label: 'Any type' },
             { value: 'MAIN' as CampaignType | typeof ALL, label: 'MAIN' },
             ...CAMPAIGN_TYPES.map((t) => ({ value: t.code as CampaignType | typeof ALL, label: t.code })),
+            { value: 'TEST' as CampaignType | typeof ALL, label: 'TEST' },
           ]}
           onChange={setTypeFilter}
         />
@@ -599,6 +614,7 @@ function CampaignCard({
             </Chip>
           )
         )}
+        {campaign.review && !(killed && campaign.review.status === 'KILL') && <ReviewChip review={campaign.review} />}
         {killed && (
           <Chip tone="danger" title={campaign.killedAt ? `Killed ${new Date(campaign.killedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Killed'}>
             ☠ Killed
@@ -610,7 +626,9 @@ function CampaignCard({
             full ? 'text-fg font-medium' : 'text-fg-secondary',
           )}
         >
-          {used > MAX_ADSETS_PER_CAMPAIGN ? `${used} adsets` : `${used} / ${MAX_ADSETS_PER_CAMPAIGN} adsets`}
+          {used > MAX_ADSETS_PER_CAMPAIGN || campaign.campaignType === 'TEST'
+            ? `${used} ${used === 1 ? 'adset' : 'adsets'}`
+            : `${used} / ${MAX_ADSETS_PER_CAMPAIGN} adsets`}
         </span>
       </div>
 
@@ -618,7 +636,7 @@ function CampaignCard({
         {live.map((adset) => (
           <AdsetRow key={adset.id} adset={adset} onOpen={() => onOpenAdset(adset.id)} twoUp={twoUp} muted={killed} />
         ))}
-        {Array.from({ length: killed ? 0 : Math.max(0, MAX_ADSETS_PER_CAMPAIGN - used) }).map((_, i) => (
+        {Array.from({ length: killed || campaign.campaignType === 'TEST' ? 0 : Math.max(0, MAX_ADSETS_PER_CAMPAIGN - used) }).map((_, i) => (
           <div
             key={`empty-${i}`}
             className={cn(

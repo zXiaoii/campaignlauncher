@@ -243,6 +243,35 @@ per-market book job, which were built from partial pivot pastes. Jobs are
 order-independent: imports only add what is missing, and an account created from a
 supplier that is wholly on hold starts held.
 
+## Apply review — the analyzer's workbook drives the app
+
+Charles has a separate Claude project, the *ecom analyzer*, that reads the Meta export and
+the Shopify orders and produces one workbook per store and period: **Meta Ads Review
+\<store\> \<from\> to \<to\>.xlsx**. The app takes that file as it is — **Workspace → ◎ Apply
+review**, choose the file, read the preview, press Apply (`src/review.ts`,
+`src/screens/ReviewDrawer.tsx`, `REVIEW_APPLY` in the store). One write:
+
+- **Status.** Every campaign on the *Campaigns* tab that is in the app gets its verdict —
+  SCALE / HOLD / FIX / TESTING / KILL — as a chip on its card with the real (Shopify) ROAS;
+  hover for the numbers and the analyzer's action list. A newer review replaces it.
+- **Killed.** KILL campaigns are marked killed (tick box, on by default; revivable). One
+  with a launch still in flight is left alone, as when killing by hand.
+- **Imported.** Campaigns and ad sets on the *Ads* tab that the app has not met are brought
+  in through the same path as Add existing CBO; account full names come from the *Action
+  plan* headers. A campaign that is not in the app and is being turned off is left out.
+- **New test batches.** Each *New Tests* row marked Planned becomes a launch: a creative
+  task for Yzah (the variations, high / normal / low from the review's priority, the
+  analyzer's brief and base ads as the direction) and a setup task whose instructions are
+  the ad set to create, the daily budget and the kill / graduate rules — both due on the
+  review's planned launch date. It goes into **TEST ABO \<product\>** in the same ad account,
+  a campaign of the new type `TEST`; when that campaign is not in the app yet, setup sees
+  *＋ Create*. A TEST campaign is not a CBO: no four-ad-set limit, and the Next batch
+  trigger never touches it.
+
+Applying the same workbook twice adds nothing: statuses are rewritten with the same
+values, killed CBOs stay killed, and a test batch whose ad set already exists is skipped.
+Everything is matched by account number + campaign name, so nothing depends on ids.
+
 ## Products Live — the funnels & store seat
 
 A sixth role, **Funnels & store** (`STORE`), for whoever keeps Funnelish and Shopify

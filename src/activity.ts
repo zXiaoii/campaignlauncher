@@ -61,6 +61,7 @@ const KIND_OF: Record<string, ActivityKind> = {
   ACCOUNT_HELD: 'account',
   ACCOUNT_RESUMED: 'account',
   MIGRATION_APPLIED: 'account',
+  REVIEW_APPLIED: 'import',
   STORE_CHECKED: 'store',
   STORE_UNCHECKED: 'store',
   ACCOUNT_NUMBER_SET: 'account',
@@ -240,6 +241,16 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       const recorded = num(m.recorded) ?? 0
       const campaigns = num(m.campaigns) ?? 0
       text = `Applied the prepared clean-up: ${retired} ${retired === 1 ? 'account' : 'accounts'} retired, ${recorded} recorded as off-boarded, ${campaigns} ${campaigns === 1 ? 'CBO' : 'CBOs'} imported`
+      break
+    }
+    case 'REVIEW_APPLIED': {
+      const campaigns = num(m.campaigns) ?? 0
+      const killed = num(m.killed) ?? 0
+      const tests = num(m.tests) ?? 0
+      const imported = num(m.imported) ?? 0
+      text = `Applied the ads review ${str(m.label) ?? ''}: ${campaigns} ${campaigns === 1 ? 'CBO' : 'CBOs'} updated${
+        imported ? `, ${imported} imported` : ''
+      }${killed ? `, ${killed} killed` : ''}${tests ? `, ${tests} test ${tests === 1 ? 'batch' : 'batches'} assigned` : ''}`
       break
     }
     case 'STORE_CHECKED':

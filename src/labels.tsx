@@ -12,11 +12,13 @@ import { Chip, type ChipTone } from './components/ui'
 import type {
   AdAccountStatus,
   AdsetStatus,
+  CampaignReview,
   CampaignType,
   ConceptType,
   CreativePriority,
   CreativeStatus,
   LaunchMode,
+  ReviewStatus,
   SetupStatus,
 } from './types'
 
@@ -95,6 +97,7 @@ export const CAMPAIGN_TYPE_MEANING: Record<CampaignType, string> = {
   REL: 'Relaunch / reuse',
   DIT: 'Deep Iteration',
   MAIN: 'Main CBO — imported from Meta with its existing name',
+  TEST: 'Test ABO — one ad set per test batch from a review; no four-ad-set limit',
 }
 
 export const CAMPAIGN_TYPE_TONE: Record<CampaignType, ChipTone> = {
@@ -103,6 +106,7 @@ export const CAMPAIGN_TYPE_TONE: Record<CampaignType, ChipTone> = {
   REL: 'warn',
   DIT: 'rose',
   MAIN: 'success',
+  TEST: 'accent',
 }
 
 /** CSS variable for the type's hue — for borders and dots, not text. */
@@ -112,6 +116,32 @@ export const CAMPAIGN_TYPE_COLOR: Record<CampaignType, string> = {
   REL: 'var(--warn)',
   DIT: 'var(--rose)',
   MAIN: 'var(--success)',
+  TEST: 'var(--accent)',
+}
+
+export const REVIEW_STATUS_TONE: Record<ReviewStatus, ChipTone> = {
+  SCALE: 'success',
+  HOLD: 'info',
+  FIX: 'warn',
+  KILL: 'danger',
+  TESTING: 'violet',
+  WATCH: 'quiet',
+  OFF: 'quiet',
+}
+
+/** The analyzer's verdict on a CBO, with its real ROAS; hover for what to do. */
+export function ReviewChip({ review }: { review: CampaignReview }) {
+  const period = `${review.from.slice(5)} → ${review.to.slice(5)}`
+  const numbers =
+    review.spend !== undefined
+      ? `Real ROAS ${(review.roas ?? 0).toFixed(2)} on ${Math.round(review.orders ?? 0)} orders, €${Math.round(review.spend)} spent (${period}).`
+      : `Review ${period}.`
+  return (
+    <Chip tone={REVIEW_STATUS_TONE[review.status]} title={`${numbers}${review.actions ? `\n${review.actions}` : ''}`}>
+      {review.status}
+      {review.roas !== undefined && review.spend ? ` ${review.roas.toFixed(2)}` : ''}
+    </Chip>
+  )
 }
 
 export const ACCOUNT_STATUS_LABEL: Record<AdAccountStatus, string> = {

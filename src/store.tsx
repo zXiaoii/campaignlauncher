@@ -37,6 +37,7 @@ import {
   toDateInputValue,
 } from './naming'
 import { assertCanWrite } from './permissions'
+import type { ReviewApplyInput } from './review'
 import {
   adAccount,
   adset,
@@ -50,6 +51,7 @@ import {
 } from './selectors'
 import type {
   AdAccountStatus,
+  CampaignReview,
   CampaignType,
   ConceptType,
   CreativePriority,
@@ -202,7 +204,7 @@ export function previewNames(db: Db, input: CreateLaunchInput): NamePreview {
     if (!cm) return { ...blank, adsetName, warning, blocked: 'Select a destination CBO.' }
     const used = slotsUsed(db, cm.id)
     const blocked =
-      used >= MAX_ADSETS_PER_CAMPAIGN
+      isCampaignFull(db, cm.id)
         ? `${cm.name} is already ${used}/${MAX_ADSETS_PER_CAMPAIGN}. Create a new CBO with this source instead.`
         : adsetName !== '—' && hasAdsetNamed(db, cm.id, adsetName)
           ? `${cm.name} already has an ad set named "${adsetName}". Change the label so the names stay unique in Meta.`
@@ -360,6 +362,13 @@ type Action =
    * run once; a second click is refused.
    */
   | { type: 'MIGRATION_APPLY'; id: string; actorId: string }
+  /**
+   * The analyzer's review, applied in one write: import what is missing, stamp each
+   * CBO with its verdict, kill the KILL ones, create a launch per test batch.
+   * Everything is addressed by account number + campaign name and resolved here,
+   * against the state the imports leave behind. See `review.ts`.
+   */
+  | { type: 'REVIEW_APPLY'; input: ReviewApplyInput; actorId: string }
   /** Wholesale replacement, used by "Reset data" after the local DB is reseeded. */
   | { type: 'REPLACE'; db: Db }
 
@@ -492,6 +501,8 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
         ? `${cm.name} is on hold — no new ad sets go into it. Resume it from the card menu first.`
       : acc?.onHold
         ? `${acc.displayName} is on hold — nothing new is launched into this account. Resume it in Ad Accounts first.`
+      : cm.campaignType === 'TEST'
+        ? `${cm.name} is a test campaign — its batches come from the review, not the trigger.`
       : isCostCapCampaign(cm.name)
         ? `${cm.name} is a cost-cap CBO — the trigger never touches it. Launch into it by hand if you mean to.`
       : isCampaignFull(db, campaignId)
@@ -672,6 +683,109 @@ function reducer(state: Db, action: Action): Db {
       recorded: plan.record.length,
       campaigns: plan.importItems.length,
       held: plan.holdIds.length,
+    })
+    return out
+  }
+
+  if (action.type === 'REVIEW_APPLY') {
+    const actor = state.users.find((u) => u.id === action.actorId)
+    assertCanWrite(actor?.role ?? 'CREATIVE', 'createLaunch')
+    const { input } = action
+    const same = (a: string, b: string) => a.replace(/\s+/g, ' ').trim().toLowerCase() === b.replace(/\s+/g, ' ').trim().toLowerCase()
+    const accountFor = (s: Db, number: string) =>
+      s.adAccounts.find((a) => a.adAccountNumber === number && a.status !== 'OFFBOARDED')
+    const campaignFor = (s: Db, number: string, name: string) => {
+      const acc = accountFor(s, number)
+      return acc ? campaignsInAccount(s, acc.id).find((c) => same(c.name, name)) : undefined
+    }
+
+    let next = state
+    for (const item of input.importItems) {
+      next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
+    }
+
+    const at = now()
+    const verdicts = new Map<string, CampaignReview>()
+    for (const s of input.statuses) {
+      const cm = campaignFor(next, s.accountNumber, s.campaignName)
+      if (cm) verdicts.set(cm.id, { ...s.review, appliedAt: at.toISOString() })
+    }
+    if (verdicts.size > 0) {
+      next = { ...next, campaigns: next.campaigns.map((c) => (verdicts.has(c.id) ? { ...c, review: verdicts.get(c.id) } : c)) }
+    }
+
+    let killed = 0
+    for (const k of input.kills) {
+      const cm = campaignFor(next, k.accountNumber, k.campaignName)
+      // A launch still in flight keeps its CBO alive — same rule as killing by hand.
+      if (!cm || plannedAdsets(next, cm.id).length > 0) continue
+      next = reducer(next, { type: 'CAMPAIGN_SET_KILLED', campaignId: cm.id, killed: true, actorId: action.actorId })
+      killed++
+    }
+
+    // Due the day the analyzer planned the launch for — noon for creative, 6pm for
+    // setup — and never sooner than a few hours from now.
+    const dueAt = (launchDate: string, hour: number, minHours: number) => {
+      const d = parseDateInput(launchDate)
+      d.setHours(hour, 0, 0, 0)
+      const floor = new Date(at.getTime() + minHours * 3_600_000)
+      return (d > floor ? d : floor).toISOString()
+    }
+    let tests = 0
+    for (const t of input.tests) {
+      const acc = accountFor(next, t.accountNumber)
+      if (!acc) continue
+      let cm = campaignsInAccount(next, acc.id).find((c) => same(c.name, t.testCampaignName))
+      if (!cm) {
+        // The TEST ABO campaign exists only here until setup creates it in Meta —
+        // the setup task reads "＋ Create" for it, like any CBO the app invents.
+        let prod = findProductByName(next, t.productName)
+        if (!prod) {
+          prod = { id: nextId('p'), name: t.productName, active: true }
+          next = { ...next, products: [...next.products, prod] }
+        }
+        cm = {
+          id: nextId('cm'),
+          adAccountId: acc.id,
+          productId: prod.id,
+          name: t.testCampaignName,
+          campaignType: 'TEST',
+          status: 'ACTIVE',
+          createdAt: at.toISOString(),
+        }
+        next = { ...next, campaigns: [...next.campaigns, cm] }
+      }
+      if (hasAdsetNamed(next, cm.id, buildAdsetName(parseDateInput(t.launchDate), t.conceptLabel))) continue
+      next = reducer(next, {
+        type: 'CREATE_LAUNCH',
+        actorId: action.actorId,
+        input: {
+          sourceKind: 'NEW_BATCH',
+          creativeHandling: 'NEW_CREATIVE',
+          adAccountId: acc.id,
+          destination: { kind: 'EXISTING_CAMPAIGN', campaignId: cm.id },
+          conceptType: t.conceptType,
+          conceptLabel: t.conceptLabel,
+          launchDate: t.launchDate,
+          brief: { hooks: [], angle: '', direction: t.direction, references: [], quantity: t.quantity, priority: t.priority },
+          setupInstructions: t.setupInstructions,
+          creativeDueAt: dueAt(t.launchDate, 12, 3),
+          setupDueAt: dueAt(t.launchDate, 18, 6),
+        },
+      })
+      tests++
+    }
+
+    if (input.importItems.length === 0 && verdicts.size === 0 && killed === 0 && tests === 0) {
+      throw new LaunchRuleError('Nothing in this review applies to the campaigns in the app.')
+    }
+    const out: Db = { ...next }
+    log(out, action.actorId, 'review', input.label, 'REVIEW_APPLIED', {
+      label: input.label,
+      campaigns: verdicts.size,
+      imported: input.importItems.length,
+      killed,
+      tests,
     })
     return out
   }
@@ -1878,6 +1992,7 @@ export function useActions() {
         alsoRecord?: { displayName: string; countryId: string; supplier?: string; timezone?: string }[],
       ) => run({ type: 'ACCOUNTS_RETIRE', accountIds, reason, alsoRecord, actorId: currentUser.id }),
       applyMigration: (id: string) => run({ type: 'MIGRATION_APPLY', id, actorId: currentUser.id }),
+      applyReview: (input: ReviewApplyInput) => run({ type: 'REVIEW_APPLY', input, actorId: currentUser.id }),
       setAccountsHold: (accountIds: string[], onHold: boolean) =>
         run({ type: 'ACCOUNTS_SET_HOLD', accountIds, onHold, actorId: currentUser.id }),
       setStoreCheck: (productId: string, countryId: string, channel: StoreChannel, checked: boolean) =>

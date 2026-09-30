@@ -138,6 +138,9 @@ export function slotsUsed(db: Db, campaignId: string): number {
 }
 
 export function isCampaignFull(db: Db, campaignId: string): boolean {
+  // A TEST ABO campaign is not a CBO: it takes one ad set per test batch, as many
+  // as the reviews call for, so the hard maximum does not apply to it.
+  if (db.campaigns.find((c) => c.id === campaignId)?.campaignType === 'TEST') return false
   return slotsUsed(db, campaignId) >= MAX_ADSETS_PER_CAMPAIGN
 }
 

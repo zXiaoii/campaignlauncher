@@ -215,8 +215,8 @@ function columnIndex(ref: string): number {
   return n - 1
 }
 
-/** The first worksheet of a .xlsx as rows of strings, shared strings resolved. */
-export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
+/** An opened workbook: its shared strings, and a way to read any of its XML parts. */
+async function openWorkbook(buf: ArrayBuffer) {
   const entries = zipEntries(buf)
   const utf8 = new TextDecoder()
   const xml = async (path: string) => {
@@ -232,14 +232,45 @@ export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
       strings.push(Array.from(si.getElementsByTagName('t')).map((t) => t.textContent ?? '').join(''))
     }
   }
+  return { entries, xml, strings }
+}
 
+/** The first worksheet of a .xlsx as rows of strings, shared strings resolved. */
+export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
+  const { entries, xml, strings } = await openWorkbook(buf)
   const sheetPath =
     [...entries.keys()]
       .filter((k) => /^xl\/worksheets\/sheet\d+\.xml$/.test(k))
       .sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]))[0] ?? ''
   const sheet = await xml(sheetPath)
   if (!sheet) throw new Error('The workbook has no worksheet.')
+  return sheetRows(sheet, strings)
+}
 
+/**
+ * Every worksheet of a .xlsx by its tab name — for workbooks where the tabs mean
+ * different things (the analyzer's review: Campaigns, Ads, New Tests…). Cells keep
+ * their column position, so `row[2]` is always column C.
+ */
+export async function readXlsxSheets(buf: ArrayBuffer): Promise<Map<string, string[][]>> {
+  const { xml, strings } = await openWorkbook(buf)
+  const wb = await xml('xl/workbook.xml')
+  const rels = await xml('xl/_rels/workbook.xml.rels')
+  if (!wb || !rels) throw new Error('That file is not a .xlsx workbook.')
+  const targets = new Map(
+    Array.from(rels.getElementsByTagName('Relationship')).map((r) => [r.getAttribute('Id') ?? '', r.getAttribute('Target') ?? '']),
+  )
+  const out = new Map<string, string[][]>()
+  for (const s of Array.from(wb.getElementsByTagName('sheet'))) {
+    const rid = s.getAttribute('r:id') ?? s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') ?? ''
+    const target = targets.get(rid) ?? ''
+    const sheet = await xml(target.startsWith('/') ? target.slice(1) : `xl/${target}`)
+    if (sheet) out.set(s.getAttribute('name') ?? '', sheetRows(sheet, strings))
+  }
+  return out
+}
+
+function sheetRows(sheet: Document, strings: string[]): string[][] {
   const rows: string[][] = []
   for (const row of Array.from(sheet.getElementsByTagName('row'))) {
     const out: string[] = []

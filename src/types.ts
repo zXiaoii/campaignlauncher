@@ -20,9 +20,30 @@ export interface StoreCheck {
 /**
  * NEW / SWE / REL / DIT are the §4.1 codes the app generates names with. MAIN is
  * for campaigns imported from Meta with their existing "MAIN CBO …" names — it is
- * never offered when creating a CBO.
+ * never offered when creating a CBO. TEST is the analyzer's "TEST ABO <product>"
+ * campaign: one per product per account, a new ad set per test batch. It is not a
+ * CBO, so the four-ad-set maximum does not apply and the Next batch trigger never
+ * touches it — its batches come from an applied review.
  */
-export type CampaignType = 'NEW' | 'SWE' | 'REL' | 'DIT' | 'MAIN'
+export type CampaignType = 'NEW' | 'SWE' | 'REL' | 'DIT' | 'MAIN' | 'TEST'
+
+/** The verdict the ecom analyzer gives a campaign in its Meta Ads Review workbook. */
+export type ReviewStatus = 'SCALE' | 'HOLD' | 'FIX' | 'KILL' | 'TESTING' | 'WATCH' | 'OFF'
+
+/** The latest review of a campaign — replaced whole each time a review is applied. */
+export interface CampaignReview {
+  status: ReviewStatus
+  /** Real (Shopify) numbers over the report period. */
+  roas?: number
+  spend?: number
+  orders?: number
+  /** The analyzer's "Actions" text for the campaign, verbatim. */
+  actions?: string
+  /** Report period, `YYYY-MM-DD`. */
+  from: string
+  to: string
+  appliedAt: string
+}
 
 export type LaunchMode =
   | 'NEW_CREATIVE'
@@ -152,6 +173,8 @@ export interface Campaign {
    * relaunching its ads elsewhere) still works.
    */
   onHold?: boolean
+  /** What the analyzer last said about it (Workspace → Apply review). */
+  review?: CampaignReview
   createdAt: string
 }
 
