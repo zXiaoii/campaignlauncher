@@ -310,7 +310,7 @@ export function Workspace({
             title={
               eligible.length === 0
                 ? 'Every CBO on screen is full, has a batch in flight, or launched less than two days ago.'
-                : `One fresh Swipes + Playbook batch into each of the ${eligible.length} CBOs whose latest ad set has been live for two days or more.`
+                : `One fresh swipes batch into each of the ${eligible.length} CBOs whose latest ad set has been live for two days or more.`
             }
             onClick={() => {
               const n = eligible.length
@@ -835,7 +835,7 @@ function NextBatchButton({
 }) {
   const { db } = useStore()
   const plan = planNextBatch(db, campaignId, now())
-  const basis = plan.source ? `from ${plan.source.name}` : 'fresh Swipes + Playbook'
+  const basis = plan.source ? `from ${plan.source.name}` : 'fresh swipes'
   return (
     <Button
       variant={plan.blockedReason ? 'default' : 'primary'}

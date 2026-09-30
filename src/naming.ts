@@ -26,6 +26,13 @@ export const CONCEPT_LABELS: Record<ConceptType, string> = {
 }
 
 /**
+ * What the Next batch trigger names its ad sets: "MM/DD/YY swipes". The trigger is
+ * swipes only (framework SWIPES) — the way the team writes it in Meta, without the
+ * "pure" the drawer's Pure Swipes label carries.
+ */
+export const TRIGGER_CONCEPT_LABEL = 'swipes'
+
+/**
  * Default direction per framework, prefilled into new briefs. Blank on purpose
  * (Charles, 17 Sep 2026): the framework name itself is the brief; anything more
  * is typed per launch.

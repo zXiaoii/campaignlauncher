@@ -27,6 +27,7 @@ import {
   buildAdsetName,
   buildCampaignName,
   CONCEPT_LABELS,
+  TRIGGER_CONCEPT_LABEL,
   dedupeCampaignName,
   DEFAULT_DIRECTION,
   extractAdAccountNumber,
@@ -268,6 +269,16 @@ type Action =
     }
   /** Yzah's note back to Charles. Empty note clears it. */
   | { type: 'CREATIVE_SET_REQUEST'; taskId: string; note?: string; actorId: string }
+  /**
+   * Write or rewrite the brief of an open creative task: the angle, the direction,
+   * hooks and reference links. Charles and Mark (`editBrief`).
+   */
+  | {
+      type: 'CREATIVE_SET_BRIEF'
+      taskId: string
+      brief: { angle: string; direction: string; hooks: string[]; references: CreativeReference[] }
+      actorId: string
+    }
   /** Setup raises (reason) or clears (no reason) a blocker. */
   | { type: 'SETUP_SET_BLOCKER'; taskId: string; reason?: string; actorId: string }
   /** Charles rewrites (or clears) the instructions on a setup task that is not live yet. */
@@ -421,7 +432,7 @@ export interface NextBatchPlan {
  * framework and concept label, same creative quantity as last time, the source
  * Drive/direction attached to Yzah's brief through the normal lineage path.
  * Falls back to the most recently launched ad set of any status, and to a plain
- * Swipes + Playbook batch if the CBO has never launched.
+ * swipes batch if the CBO has never launched.
  */
 export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPlan {
   const cm = campaign(db, campaignId)
@@ -433,11 +444,12 @@ export function planNextBatch(db: Db, campaignId: string, at: Date): NextBatchPl
   const source = launched.find((a) => a.status === 'ACTIVE') ?? launched[0]
   const latest = launched[0]
 
-  // The trigger always makes a Swipes + Playbook batch (Charles, 17 Sep 2026) —
-  // iterations, variations and pure swipes are deliberate launches through the
-  // drawer, never something the one-click button decides on its own.
-  const conceptType: ConceptType = 'SWIPES_PLAYBOOK'
-  const conceptLabel = CONCEPT_LABELS.SWIPES_PLAYBOOK
+  // The trigger always makes a swipes-only batch, named "MM/DD/YY swipes" (Charles,
+  // 30 Sep 2026; it was Swipes + Playbook from 17 Sep). Iterations, variations and
+  // playbook batches are deliberate launches through the drawer or a review, never
+  // something the one-click button decides on its own.
+  const conceptType: ConceptType = 'SWIPES'
+  const conceptLabel = TRIGGER_CONCEPT_LABEL
 
   // Cadence: the latest ad set must have been live for MIN_DAYS_BETWEEN_BATCHES
   // before the next batch is due. Counted from its launch timestamp.
@@ -1445,6 +1457,39 @@ function reducer(state: Db, action: Action): Db {
       return db
     }
 
+    case 'CREATIVE_SET_BRIEF': {
+      assertCanWrite(role, 'editBrief')
+      const task = state.creativeTasks.find((t) => t.id === action.taskId)
+      if (!task) throw new LaunchRuleError('Creative task not found.')
+      if (task.status === 'COMPLETED') {
+        throw new LaunchRuleError('Setup has already completed this launch — the brief is locked.')
+      }
+      const references = action.brief.references
+        .map((r) => ({ url: r.url.trim(), label: r.label?.trim() || undefined }))
+        .filter((r) => r.url)
+      const bad = references.find((r) => !/^https?:\/\/\S+$/i.test(r.url))
+      if (bad) throw new LaunchRuleError(`"${bad.url}" is not a link — a reference starts with http:// or https://.`)
+      const hooks = action.brief.hooks.map((h) => h.trim()).filter(Boolean)
+      db.creativeBatches = state.creativeBatches.map((b) =>
+        b.id === task.creativeBatchId
+          ? {
+              ...b,
+              angle: action.brief.angle.trim() || undefined,
+              direction: action.brief.direction.trim() || undefined,
+              hooks,
+              references,
+              briefUpdatedBy: action.actorId,
+              briefUpdatedAt: now().toISOString(),
+            }
+          : b,
+      )
+      log(db, action.actorId, 'creative_task', task.id, 'CREATIVE_BRIEF_UPDATED', {
+        references: references.length,
+        hooks: hooks.length,
+      })
+      return db
+    }
+
     case 'CREATIVE_SET_REQUEST': {
       assertCanWrite(role, 'creativeRequest')
       const task = state.creativeTasks.find((t) => t.id === action.taskId)
@@ -1970,6 +2015,10 @@ export function useActions() {
         run({ type: 'NEXT_BATCH', campaignIds, actorId: currentUser.id }),
       cancelLaunch: (adsetId: string) =>
         run({ type: 'LAUNCH_CANCEL', adsetId, actorId: currentUser.id }),
+      setBrief: (
+        taskId: string,
+        brief: { angle: string; direction: string; hooks: string[]; references: CreativeReference[] },
+      ) => run({ type: 'CREATIVE_SET_BRIEF', taskId, brief, actorId: currentUser.id }),
       setRequest: (taskId: string, note?: string) =>
         run({ type: 'CREATIVE_SET_REQUEST', taskId, note, actorId: currentUser.id }),
       setBlocker: (taskId: string, reason?: string) =>

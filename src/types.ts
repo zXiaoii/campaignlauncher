@@ -210,6 +210,9 @@ export interface CreativeBatch {
   angle?: string
   direction?: string
   references: CreativeReference[]
+  /** Who last wrote the brief after the launch was created (Charles or Mark), and when. */
+  briefUpdatedBy?: string
+  briefUpdatedAt?: string
   driveUrl?: string
   originalLaunchId?: string
   createdAt: string

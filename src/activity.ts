@@ -38,6 +38,7 @@ const KIND_OF: Record<string, ActivityKind> = {
   LAUNCH_CANCELLED: 'launch',
   SETUP_INSTRUCTIONS_SET: 'launch',
   CREATIVE_PRIORITY_SET: 'launch',
+  CREATIVE_BRIEF_UPDATED: 'launch',
   CAMPAIGN_IMPORTED: 'import',
   CAMPAIGNS_IMPORTED: 'import',
   CAMPAIGN_HELD: 'campaign',
@@ -150,6 +151,13 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       const w = whereForCreativeTask(db, l.entityId)
       adsetId = w?.adsetId
       text = `Set ${w?.where ?? 'a creative task'} to ${(str(m.priority) ?? 'normal').toLowerCase()} priority`
+      break
+    }
+    case 'CREATIVE_BRIEF_UPDATED': {
+      const w = whereForCreativeTask(db, l.entityId)
+      adsetId = w?.adsetId
+      const refs = num(m.references) ?? 0
+      text = `Wrote the brief for ${w?.where ?? 'a creative task'}${refs ? ` — ${refs} ${refs === 1 ? 'reference' : 'references'}` : ''}`
       break
     }
     case 'CAMPAIGN_IMPORTED': {

@@ -385,8 +385,11 @@ Library for reuse; an untouched empty batch is removed with it.
   ad set went live less than `MIN_DAYS_BETWEEN_BATCHES` (2) days ago; the button reads
   *⏳ Too soon* with the date it becomes due, and the state filter has a *Too soon* bucket.
   Launching by hand through the drawer is not limited by this.
-- **The trigger is always Swipes + Playbook.** It no longer inherits iteration, variation
-  or pure swipes from the previous ad set; those are deliberate launches through the drawer.
+- **The trigger is always swipes only** (30 Sep 2026; it was Swipes + Playbook from 17
+  Sep). The ad set is named `MM/DD/YY swipes`, framework Pure Swipes. It never inherits
+  iteration, variation or playbook from the previous ad set; those are deliberate launches
+  through the drawer or a review. When importing, a name with "playbook" in it is Swipes +
+  Playbook and plain "swipes" is swipes only.
 - **Default directions are blank** for every framework. The framework name is the brief;
   anything more is typed per launch.
 - **Cost-cap CBOs are never touched by the trigger.** Recognised by name ("COSTCAP",
@@ -414,15 +417,26 @@ The toolbar's **⚡ Next batch · all ready (N)** does the same for every CBO on
 that passes both rules, in one click. Both go through the same `CREATE_LAUNCH` path as the drawer
 (`planNextBatch` in `store.tsx` builds the input), so naming, the slot maximum and the
 log are identical, and the bulk action is atomic. Per §8.4 hooks and references are
-never carried over silently; a CBO that has never launched gets a plain Swipes +
-Playbook batch. **Launch…** next to it still opens the full drawer when you want to
+never carried over silently; every trigger batch is a plain swipes batch. **Launch…** next to it still opens the full drawer when you want to
 shape the brief by hand.
 
 ## Creative priority
 
 Charles sets **High / Normal / Low** on every creative task — in the launch brief, and
 afterwards from the task drawer. Yzah's queue sorts by priority first and due date
-second. It is Charles's field: Yzah sees it, cannot change it (`editBrief` permission).
+second. Yzah sees it, cannot change it (`editBrief` permission — Charles and Mark).
+
+## Writing the brief — Charles and Mark
+
+A task called "C2 iterations" tells Yzah nothing on its own, so the brief can be written
+after the launch exists, by **Charles or Mark**. Mark has a third tab, **Creative
+Briefs** — Yzah's queue, read-only except for the brief and the priority. Open a task:
+**Brief for Yzah** has the creative angle, what to make, optional hooks, and references
+(one link per line, a note after the link if it helps). **Save brief** writes it to the
+task's creative batch (`CREATIVE_SET_BRIEF`); Yzah sees it at once under Direction and
+References, marked *brief by Mark · time*. Tasks with nothing in the brief carry a *needs
+brief* chip and have their own filter, so trigger batches and review test batches that
+still need an angle are easy to find. Locked once setup completes the launch.
 
 ## Local database
 

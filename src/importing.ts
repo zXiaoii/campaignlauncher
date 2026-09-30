@@ -63,12 +63,16 @@ export function parseAdsetLine(raw: string): ParsedAdset | null {
       : // "variation", "variations" and the team's "varations"
         /vari?at/.test(words)
         ? 'VARIATION'
-        : words.includes('pure')
-          ? 'SWIPES'
-          : // Plain "swipes" in a name has always meant the team's default, Swipes + Playbook.
-            words.includes('swipe') || rest.trim() === ''
-            ? 'SWIPES_PLAYBOOK'
-            : 'CUSTOM'
+        : words.includes('playbook')
+          ? 'SWIPES_PLAYBOOK'
+          : // "swipes" on its own is swipes only (Charles, 30 Sep 2026) — the playbook
+            // layer is named when it is there. "pure swipes" says the same thing.
+            words.includes('pure') || words.includes('swipe')
+            ? 'SWIPES'
+            : // A bare date is the older habit, from when the default was Swipes + Playbook.
+              rest.trim() === ''
+              ? 'SWIPES_PLAYBOOK'
+              : 'CUSTOM'
   const conceptLabel = conceptType === 'CUSTOM' ? rest.trim() || name : CONCEPT_LABELS[conceptType]
 
   return { name, launchedAt, conceptType, conceptLabel }

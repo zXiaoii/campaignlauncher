@@ -1,6 +1,7 @@
 // Yzah's creative-task table and drawer (PRD §9). Charles sees the same table for
-// all tasks and sets priority; Danny gets a read-only summary. Mark never reaches
-// this screen at all (§11) — the nav and the permission matrix both exclude it.
+// all tasks and sets priority; Danny gets a read-only summary. Mark sees it too
+// (as "Creative Briefs"): he and Charles write the brief — angle, direction, hooks,
+// reference ads — because "C2 iterations" on its own tells Yzah nothing.
 //
 // Yzah can edit her submission any time before setup completes the launch, and
 // can raise a request back to Charles ("need the full batch") that shows as a flag
@@ -47,11 +48,32 @@ import {
   SetupStatusChip,
 } from '../labels'
 import { dueLabel, formatLaunchDate, formatTime, isLate } from '../naming'
+import { canWrite } from '../permissions'
 import { creativeRows, rowForCreativeTask, userName } from '../selectors'
 import { useActions, useStore } from '../store'
-import type { CreativePriority } from '../types'
+import type { CreativeBatch, CreativePriority, CreativeReference } from '../types'
 
-type Filter = 'OPEN' | 'ALL'
+type Filter = 'OPEN' | 'NEEDS_BRIEF' | 'ALL'
+
+/** Nothing for Yzah to go on: no angle, no direction, no hooks, no reference. */
+function briefIsEmpty(b: CreativeBatch | undefined): boolean {
+  return !b || (!b.angle?.trim() && !b.direction?.trim() && b.hooks.length === 0 && b.references.length === 0)
+}
+
+/** One reference per line: the link, then (optionally) what it is. */
+function parseReferences(text: string): CreativeReference[] {
+  return text
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => {
+      const [url, ...rest] = l.split(/\s+/)
+      const label = rest.join(' ').replace(/^[-–—:|]\s*/, '').trim()
+      return { url, label: label || undefined }
+    })
+}
+
+const referencesText = (refs: CreativeReference[]) => refs.map((r) => (r.label ? `${r.url} ${r.label}` : r.url)).join('\n')
 
 export function CreativeTasks() {
   const { db, currentUser } = useStore()
@@ -60,11 +82,13 @@ export function CreativeTasks() {
   const today = now()
 
   const isYzah = currentUser.role === 'CREATIVE'
+  const canBrief = canWrite(currentUser.role, 'editBrief')
 
   let rows = creativeRows(db)
   if (isYzah) rows = rows.filter((r) => r.creativeTask!.assignee === currentUser.id)
   const open = rows.filter((r) => r.creativeTask!.status === 'TODO')
-  const shown = filter === 'OPEN' ? open : rows
+  const needsBrief = open.filter((r) => briefIsEmpty(r.batch))
+  const shown = filter === 'OPEN' ? open : filter === 'NEEDS_BRIEF' ? needsBrief : rows
 
   const counts = {
     todo: open.length,
@@ -77,11 +101,13 @@ export function CreativeTasks() {
   return (
     <>
       <PageHead
-        title="Creative Tasks"
+        title={currentUser.role === 'SETUP_QA' ? 'Creative Briefs' : 'Creative Tasks'}
         sub={
           isYzah
             ? 'Highest priority first. Submit a Drive link to hand a task to setup — you can update it until the launch goes live.'
-            : 'Every creative task. A task exists only when creative work is actually required.'
+            : canBrief
+              ? 'Every creative task. Open one to write its brief for Yzah — the angle, what to make, and the reference ads.'
+              : 'Every creative task. A task exists only when creative work is actually required.'
         }
       />
 
@@ -89,7 +115,8 @@ export function CreativeTasks() {
         <Stats
           items={[
             { k: 'To do', v: counts.todo, tone: 'info' },
-            { k: 'High', v: counts.high, tone: 'rose' },
+            ...(canBrief ? [{ k: 'Needs brief', v: needsBrief.length, tone: (needsBrief.length ? 'warn' : 'quiet') as 'warn' | 'quiet' }] : []),
+            { k: 'High', v: counts.high, tone: 'rose' as const },
             { k: 'Requests', v: counts.requests, tone: counts.requests ? 'warn' : 'quiet' },
             { k: 'Submitted', v: counts.submitted, tone: 'success' },
             { k: 'Late', v: counts.late, tone: counts.late ? 'danger' : 'quiet' },
@@ -101,6 +128,7 @@ export function CreativeTasks() {
           value={filter}
           options={[
             { value: 'OPEN' as Filter, label: `Open (${open.length})` },
+            ...(canBrief ? [{ value: 'NEEDS_BRIEF' as Filter, label: `Needs brief (${needsBrief.length})` }] : []),
             { value: 'ALL' as Filter, label: 'All' },
           ]}
           onChange={setFilter}
@@ -148,6 +176,11 @@ export function CreativeTasks() {
                     <span className="inline-flex gap-1.5">
                       <CreativeStatusChip status={t.status} />
                       {t.requestNote && <RequestChip note={t.requestNote} />}
+                      {canBrief && t.status === 'TODO' && briefIsEmpty(r.batch) && (
+                        <Chip tone="warn" title="No angle, direction, hooks or references yet — open the task to write the brief.">
+                          needs brief
+                        </Chip>
+                      )}
                     </span>
                   </Td>
                 </Tr>
@@ -164,7 +197,7 @@ export function CreativeTasks() {
 
 function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () => void }) {
   const { db, currentUser, error, clearError } = useStore()
-  const { submitCreative, setPriority, setRequest } = useActions()
+  const { submitCreative, setPriority, setRequest, setBrief } = useActions()
   const { show } = useToast()
   const row = rowForCreativeTask(db, taskId)
   const task = row?.creativeTask
@@ -172,6 +205,11 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
   const [drive, setDrive] = useState(batch?.driveUrl ?? '')
   const [note, setNote] = useState(task?.submissionNote ?? '')
   const [request, setRequestText] = useState(task?.requestNote ?? '')
+  // The brief, as Charles or Mark is typing it.
+  const [angle, setAngle] = useState(batch?.angle ?? '')
+  const [direction, setDirection] = useState(batch?.direction ?? '')
+  const [hooksText, setHooksText] = useState((batch?.hooks ?? []).join('\n'))
+  const [refsText, setRefsText] = useState(referencesText(batch?.references ?? []))
 
   if (!row || !task) {
     return (
@@ -183,6 +221,12 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
 
   const isYzah = currentUser.role === 'CREATIVE'
   const isCharles = currentUser.role === 'MEDIA_BUYER'
+  const canBrief = canWrite(currentUser.role, 'editBrief')
+  const briefDirty =
+    angle.trim() !== (batch?.angle ?? '') ||
+    direction.trim() !== (batch?.direction ?? '') ||
+    hooksText.split('\n').map((h) => h.trim()).filter(Boolean).join('\n') !== (batch?.hooks ?? []).join('\n') ||
+    referencesText(parseReferences(refsText)) !== referencesText(batch?.references ?? [])
   const iterates =
     row.launch.launchMode === 'DEEP_ITERATION' || row.launch.launchMode === 'REUSE_PLUS_NEW'
   const editable = task.status !== 'COMPLETED'
@@ -248,7 +292,7 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
             </Button>
           ) : (
             <span className="text-xs text-fg-secondary">
-              {isCharles ? 'Priority is yours; submission is Yzah’s.' : 'Read-only — this queue belongs to Yzah.'}
+              {canBrief ? 'The brief and priority are yours; submission is Yzah’s.' : 'Read-only — this queue belongs to Yzah.'}
             </span>
           )}
         </>
@@ -274,7 +318,7 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
               )}
             </div>
             {isCharles && (
-              <Button size="sm" className="ml-auto shrink-0" onClick={() => setRequest(task.id, undefined)}>
+              <Button size="sm" className="ml-auto shrink-0" title="Clears Yzah's flag." onClick={() => setRequest(task.id, undefined)}>
                 Handled
               </Button>
             )}
@@ -282,7 +326,7 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
         </Callout>
       )}
 
-      {isCharles && (
+      {canBrief && (
         <Section title="Priority">
           <div className="flex flex-wrap items-center gap-2">
             <Segmented
@@ -309,7 +353,71 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
         </Block>
       </Section>
 
-      {hooks.length > 0 && (
+      {canBrief && editable && (
+        <Section
+          title="Brief for Yzah"
+          trailing={
+            batch?.briefUpdatedBy ? (
+              <span className="text-xs text-fg-tertiary">
+                last written by {userName(db, batch.briefUpdatedBy)}
+                {batch.briefUpdatedAt ? ` · ${formatLaunchDate(new Date(batch.briefUpdatedAt))} ${formatTime(batch.briefUpdatedAt)}` : ''}
+              </span>
+            ) : briefIsEmpty(batch) ? (
+              <Chip tone="warn">needs brief</Chip>
+            ) : undefined
+          }
+        >
+          <Field label="Creative angle" hint="The idea in one line — e.g. “C3 angle: doctors hate this, from the wife’s point of view”.">
+            <input className={inputClass} value={angle} placeholder="What is this batch about?" onChange={(e) => setAngle(e.target.value)} />
+          </Field>
+          <Field label="What to make" hint="Spell out what “C2 iterations” means: which ad, what to keep, what to change.">
+            <textarea
+              className={textareaClass}
+              value={direction}
+              placeholder="e.g. Take C2 (the before/after UGC). Keep the first 3 seconds, make 4 versions with new hooks…"
+              onChange={(e) => setDirection(e.target.value)}
+            />
+          </Field>
+          <Field label="Hooks (optional)" hint="One per line.">
+            <textarea className={textareaClass} value={hooksText} onChange={(e) => setHooksText(e.target.value)} />
+          </Field>
+          <Field label="References" hint="One link per line — the ad, a Drive folder, an Ad Library URL. Add a note after the link if it helps: “https://… C2 original”.">
+            <textarea
+              className={cn(textareaClass, 'font-mono text-xs')}
+              value={refsText}
+              placeholder="https://…  C2 original"
+              onChange={(e) => setRefsText(e.target.value)}
+            />
+          </Field>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!briefDirty}
+            title={briefDirty ? undefined : 'No changes yet.'}
+            onClick={() => {
+              const ok = setBrief(task.id, {
+                angle,
+                direction,
+                hooks: hooksText.split('\n'),
+                references: parseReferences(refsText),
+              })
+              if (ok) {
+                show({
+                  tone: 'success',
+                  kind: 'Brief saved',
+                  title: `${row.adset.name} · ${row.campaign.name}`,
+                  body: 'Yzah sees it on her task now.',
+                  ms: 7000,
+                })
+              }
+            }}
+          >
+            Save brief
+          </Button>
+        </Section>
+      )}
+
+      {!(canBrief && editable) && hooks.length > 0 && (
         <Section title="Hooks" trailing={<CopyButton value={hooks.join('\n')} label="Copy all" />}>
           {hooks.map((h, i) => (
             <TextRow key={i} copy={h}>
@@ -319,16 +427,28 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
         </Section>
       )}
 
-      <Section title="Direction">
-        {batch?.angle && (
-          <p className="mt-0 mb-3 text-fg-secondary">
-            <strong className="text-fg font-medium">Angle:</strong> {batch.angle}
-          </p>
-        )}
-        <Block>{batch?.direction ?? 'No direction supplied.'}</Block>
-      </Section>
+      {!(canBrief && editable) && (
+        <Section
+          title="Direction"
+          trailing={
+            batch?.briefUpdatedBy ? (
+              <span className="text-xs text-fg-tertiary">
+                brief by {userName(db, batch.briefUpdatedBy)}
+                {batch.briefUpdatedAt ? ` · ${formatLaunchDate(new Date(batch.briefUpdatedAt))} ${formatTime(batch.briefUpdatedAt)}` : ''}
+              </span>
+            ) : undefined
+          }
+        >
+          {batch?.angle && (
+            <p className="mt-0 mb-3 text-fg-secondary">
+              <strong className="text-fg font-medium">Angle:</strong> {batch.angle}
+            </p>
+          )}
+          <Block>{batch?.direction ?? 'No direction supplied.'}</Block>
+        </Section>
+      )}
 
-      {(batch?.references.length ?? 0) > 0 && (
+      {!(canBrief && editable) && (batch?.references.length ?? 0) > 0 && (
         <Section title="References">
           <ul className="m-0 pl-[18px]">
             {batch!.references.map((r, i) => (

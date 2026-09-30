@@ -50,7 +50,8 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     CEO: 'summary',
     CREATIVE: 'own',
     SETUP: 'none',
-    SETUP_QA: 'none',
+    // Mark sees Yzah's queue so he can write briefs for it (see editBrief).
+    SETUP_QA: 'read',
     STORE: 'none',
   },
   setupTasks: {
@@ -69,12 +70,18 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     SETUP_QA: 'none',
     STORE: 'none',
   },
+  /**
+   * The brief Yzah works from — angle, direction, hooks, references — and the
+   * task's priority. Charles and Mark both write it (Charles, 30 Sep 2026): a task
+   * like "C2 iterations" means nothing to Yzah until one of them spells out the
+   * angle and attaches the reference ads.
+   */
   editBrief: {
     MEDIA_BUYER: 'full',
     CEO: 'none',
     CREATIVE: 'none',
     SETUP: 'none',
-    SETUP_QA: 'none',
+    SETUP_QA: 'full',
     STORE: 'none',
   },
   submitCreative: {
@@ -244,5 +251,6 @@ export const NAV: Record<Role, NavItem[]> = {
   SETUP_QA: [
     { key: 'setupOverview', label: 'Setup Overview' },
     { key: 'setupHistory', label: 'Setup History' },
+    { key: 'creative', label: 'Creative Briefs' },
   ],
 }
