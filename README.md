@@ -250,8 +250,14 @@ hold. The next export import then brings back what is running as new CBOs. The s
 **Ad accounts — match the 7 Oct panels** (`accounts` + `matchSuppliers`,
 `src/data/accounts7Oct.ts`), makes the directory match the two supplier panels Charles
 pasted, active accounts only: 33 GO DGTL, 9 RHKA and 6 of the new **ADSOL** tag. Missing
-accounts are created with market, supplier, panel label and timezone; a GO DGTL / RHKA /
-ADSOL account the panels no longer list is retired.
+accounts are created with market, supplier, panel label and timezone; a GO DGTL account
+the panel no longer lists is retired (GO DGTL only — the ROAS panel paste was partial,
+so RHKA / ADSOL accounts are added, never retired, by it). The seventh, **Canada — match
+the 7 Oct export** (`src/data/canada7Oct.ts`, kill word Esorepair), is the first book
+after the clean slate: Canada's running CBOs come back as fresh records. Two rules were
+added for it: an off-boarded account the book shows spending is **brought back** before
+the import, and kill words are checked again after the import, so a CBO the book brings
+in on a killed product (EsoRepair) is imported and marked killed in the same click.
 
 ## Apply review — the analyzer's workbook drives the app
 

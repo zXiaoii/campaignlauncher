@@ -9,6 +9,7 @@ import type { MetaExport, PastedAccount } from '../importing'
 import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
+import { CANADA_7_OCT } from './canada7Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -138,7 +139,24 @@ export const MIGRATIONS: PreparedMigration[] = [
     banned: [],
     book: NO_BOOK,
     accounts: ACCOUNTS_7_OCT,
+    // GO DGTL only: the ROAS panel paste turned out to be partial (the 7 Oct Canada
+    // export still runs on #4286 and #9570, which it did not list), so RHKA / ADSOL
+    // accounts are added but never retired by this job.
     matchSuppliers: ACCOUNTS_7_OCT_SUPPLIERS,
+  },
+  {
+    // Charles, 7 Oct 2026: the Canada export after the clean slate — "this is for
+    // canada", "esorepair killed". Canada is made to match it; EsoRepair comes in
+    // and is marked killed in the same click, so the record shows it ran and stopped.
+    id: '2026-10-07-canada',
+    chip: 'Prepared update · 7 Oct',
+    title: 'Canada — match the 7 Oct export',
+    bookLabel: 'Canada from your 7 Oct export',
+    reason: '',
+    banned: [],
+    book: CANADA_7_OCT,
+    killWords: ['Esorepair'],
+    matchCountryIds: ['c_ca'],
   },
 ]
 

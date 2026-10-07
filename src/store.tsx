@@ -577,6 +577,21 @@ export interface MigrationPlan {
   resumeIds: string[]
   /** Panel accounts the directory does not have yet. */
   createAccounts: AccountSpec[]
+  /** Off-boarded accounts the book shows spending — brought back before the import. */
+  reactivateIds: string[]
+  /** CBOs the book brings in that match a kill word: imported, then marked killed. */
+  killAfterImport: string[]
+}
+
+/** Active CBOs whose name or product carries one of the job's kill words. */
+function campaignsByKillWord(db: Db, words: string[]): Db['campaigns'] {
+  const keys = words.map((w) => productKey(w)).filter(Boolean)
+  if (keys.length === 0) return []
+  return db.campaigns.filter((c) => {
+    if (c.status !== 'ACTIVE') return false
+    const hay = productKey(`${c.name} ${db.products.find((p) => p.id === c.productId)?.name ?? ''}`)
+    return keys.some((k) => hay.includes(k))
+  })
 }
 
 /** Computed against the live database at click time, so it is always current. */
@@ -620,17 +635,25 @@ export function planMigration(db: Db, id: string): MigrationPlan {
           actorId: db.users.find((u) => u.role === 'MEDIA_BUYER' && u.active)?.id ?? '',
         })
       : db
+  // An account the book shows spending is not gone, whatever the directory says:
+  // it comes back before the import so its CBOs land somewhere visible.
+  const reactivateIds = [
+    ...new Set(
+      m.book.rows
+        .map((r) => matchAccount(r.account, afterRetire.adAccounts))
+        .filter((a): a is NonNullable<typeof a> => Boolean(a && a.status === 'OFFBOARDED'))
+        .map((a) => a.id),
+    ),
+  ]
   const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
   const held = new Set(m.holdSuppliers ?? [])
   const words = (m.killWords ?? []).map((w) => productKey(w)).filter(Boolean)
-  const byWord =
-    words.length === 0
-      ? []
-      : afterRetire.campaigns.filter((c) => {
-          if (c.status !== 'ACTIVE') return false
-          const hay = productKey(`${c.name} ${afterRetire.products.find((p) => p.id === c.productId)?.name ?? ''}`)
-          return words.some((w) => hay.includes(w))
-        })
+  const byWord = campaignsByKillWord(afterRetire, m.killWords ?? [])
+  // A CBO the book brings in that carries a kill word is imported and then killed in
+  // the same click — the record shows it ran and stopped (see MIGRATION_APPLY).
+  const killAfterImport = groups
+    .filter((g) => !g.problem && !g.existingId && words.some((w) => productKey(`${g.campaignName} ${g.productName}`).includes(w)))
+    .map((g) => g.campaignName)
   // "Make this market match the book": active CBOs there, on accounts still in
   // play, that the book does not mention.
   const inBook = new Set(groups.map((g) => g.existingId).filter((x): x is string => Boolean(x)))
@@ -654,6 +677,8 @@ export function planMigration(db: Db, id: string): MigrationPlan {
     cancelAdsetIds: m.killAll ? inFlight.flatMap((c) => plannedAdsets(afterRetire, c.id).map((a) => a.id)) : [],
     resumeIds: m.resumeAll ? afterRetire.adAccounts.filter((a) => a.onHold && a.status !== 'OFFBOARDED').map((a) => a.id) : [],
     createAccounts,
+    reactivateIds,
+    killAfterImport,
     reason: m.reason,
     retireIds,
     record,
@@ -712,6 +737,9 @@ function reducer(state: Db, action: Action): Db {
     if (plan.holdIds.length > 0) {
       next = reducer(next, { type: 'ACCOUNTS_SET_HOLD', accountIds: plan.holdIds, onHold: true, actorId: action.actorId })
     }
+    for (const accountId of plan.reactivateIds) {
+      next = reducer(next, { type: 'ACCOUNT_SET_STATUS', accountId, status: 'ACTIVE', reason: 'Spending in the export', actorId: action.actorId })
+    }
     for (const item of plan.importItems) {
       next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
     }
@@ -731,7 +759,12 @@ function reducer(state: Db, action: Action): Db {
     for (const adsetId of plan.cancelAdsetIds) {
       next = reducer(next, { type: 'LAUNCH_CANCEL', adsetId, actorId: action.actorId })
     }
-    for (const campaignId of plan.killIds) {
+    // Kill words are checked again after the import, so a CBO the book just brought
+    // in (EsoRepair on a killed product) is marked killed in the same click.
+    const m = findMigration(action.id)
+    const killIds = new Set([...plan.killIds, ...campaignsByKillWord(next, m?.killWords ?? []).map((c) => c.id)])
+    for (const campaignId of killIds) {
+      if (plannedAdsets(next, campaignId).length > 0) continue
       next = reducer(next, { type: 'CAMPAIGN_SET_KILLED', campaignId, killed: true, actorId: action.actorId })
     }
     if (plan.resumeIds.length > 0) {
@@ -739,7 +772,8 @@ function reducer(state: Db, action: Action): Db {
     }
     const out: Db = { ...next }
     log(out, action.actorId, 'migration', action.id, 'MIGRATION_APPLIED', {
-      killed: plan.killIds.length,
+      killed: killIds.size,
+      reactivated: plan.reactivateIds.length,
       cancelled: plan.cancelAdsetIds.length,
       retired: plan.retireIds.length,
       recorded: plan.record.length,

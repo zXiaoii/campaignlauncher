@@ -47,9 +47,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
     plan.holdIds.length === 0 &&
     plan.killIds.length === 0 &&
     plan.resumeIds.length === 0 &&
-    plan.createAccounts.length === 0
+    plan.createAccounts.length === 0 &&
+    plan.reactivateIds.length === 0
   if (nothing) return null
-  const killing = plan.killIds.length > 0
+  const reactivating = plan.reactivateIds.length > 0
+  const killTotal = plan.killIds.length + plan.killAfterImport.length
+  const killing = plan.killIds.length > 0 || plan.killAfterImport.length > 0
   const resuming = plan.resumeIds.length > 0
   const adding = plan.createAccounts.length > 0
 
@@ -94,6 +97,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               account from Ad Accounts.{' '}
             </>
           )}
+          {reactivating && (
+            <>
+              bring back {plan.reactivateIds.length} off-boarded {plan.reactivateIds.length === 1 ? 'account' : 'accounts'} the export shows
+              spending, then{' '}
+            </>
+          )}
           {importing && (
             <>
               import {m.bookLabel} — {importSentence}.{' '}
@@ -101,12 +110,14 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           )}
           {killing && (
             <>
-              Mark {plan.killIds.length}{' '}
+              Mark {killTotal}{' '}
               {m.killAll
-                ? `${plan.killIds.length === 1 ? 'CBO' : 'CBOs'} — every active one in every market —`
+                ? `${killTotal === 1 ? 'CBO' : 'CBOs'} — every active one in every market —`
                 : m.matchCountryIds?.length
-                  ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} no longer running (not in the exports)`
-                  : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
+                  ? `${killTotal === 1 ? 'CBO' : 'CBOs'} — not in the export${
+                      m.killWords?.length ? `, or carrying ${m.killWords.join(' / ')}` : ''
+                    } —`
+                  : `${(m.killWords ?? []).join(' / ')} ${killTotal === 1 ? 'CBO' : 'CBOs'}`}{' '}
               as killed (revivable) — see the list under Show details.
               {m.killAll &&
                 ` The workspace empties; ad accounts, products and history stay. Your next export import brings back what is running.${
@@ -149,7 +160,9 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                   retiring ? `${plan.retireIds.length} accounts → off-boarded, ${killedCbos} CBOs → killed. ` : ''
                 }${holding ? `${plan.holdIds.length} accounts → on hold. ` : ''}${
                   plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches → cancelled. ` : ''
-                }${killing ? `${plan.killIds.length} CBOs → killed. ` : ''}${resuming ? `${plan.resumeIds.length} accounts → resumed. ` : ''}${
+                }${reactivating ? `${plan.reactivateIds.length} accounts → back in play. ` : ''}${killing ? `${killTotal} CBOs → killed. ` : ''}${
+                  resuming ? `${plan.resumeIds.length} accounts → resumed. ` : ''
+                }${
                   importing ? `${plan.importItems.length} CBOs imported (${adsets} ad sets). ` : ''
                 }Nothing that went live is deleted. This runs once.`,
               )
@@ -166,7 +179,8 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                   retiring ? `${plan.retireIds.length} accounts retired` : '',
                   holding ? `${plan.holdIds.length} accounts on hold` : '',
                   plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches cancelled` : '',
-                  killing ? `${plan.killIds.length} CBOs marked killed` : '',
+                  reactivating ? `${plan.reactivateIds.length} accounts back in play` : '',
+                  killing ? `${killTotal} CBOs marked killed` : '',
                   resuming ? `${plan.resumeIds.length} accounts resumed` : '',
                   importing ? `${plan.importItems.length} CBOs and ${adsets} ad sets imported` : '',
                   newAccounts ? `${newAccounts} new ad accounts created` : '',
@@ -203,6 +217,11 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               ].join('\n')}
             </Block>
           )}
+          {reactivating && (
+            <Block className="max-h-64 overflow-auto">
+              {[`BACK IN PLAY (${plan.reactivateIds.length})`, ...plan.reactivateIds.map((id) => `  ${adAccount(db, id)?.displayName ?? id}`)].join('\n')}
+            </Block>
+          )}
           {retiring && (
             <Block className="max-h-64 overflow-auto">
               {[
@@ -218,11 +237,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {(killing || plan.killBlocked.length > 0) && (
             <Block className="max-h-64 overflow-auto">
               {[
-                `MARK AS KILLED (${plan.killIds.length})`,
+                `MARK AS KILLED (${killTotal})`,
                 ...plan.killIds.map((id) => {
                   const c = db.campaigns.find((x) => x.id === id)
                   return `  ${c?.name ?? id}   · ${adAccount(db, c?.adAccountId)?.displayName ?? ''}`
                 }),
+                ...plan.killAfterImport.map((n) => `  ${n}   · imported from the export, then killed (${(m.killWords ?? []).join(' / ')})`),
                 ...(plan.killBlocked.length ? ['', `LEFT ALONE — launch in flight (${plan.killBlocked.length})`, ...plan.killBlocked.map((n) => `  ${n}`)] : []),
               ].join('\n')}
             </Block>

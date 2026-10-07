@@ -90,5 +90,9 @@ export const ACCOUNTS_7_OCT: AccountSpec[] = [
   roas('#7733 - CANADA | AD 29 - Danny [ROAS A] 12245 - PP - RHKA', 'c_ca'),
 ]
 
-/** Suppliers these panels are the whole truth for: an account of theirs not listed is gone. */
-export const ACCOUNTS_7_OCT_SUPPLIERS = ['GO DGTL', 'RHKA', 'ADSOL']
+/**
+ * Suppliers whose panel is the whole truth: an account of theirs not listed is gone.
+ * GO DGTL only — the ROAS panel paste showed just the accounts created on 5–6 Oct,
+ * while older RHKA accounts (#4286, #9570) were still spending that day.
+ */
+export const ACCOUNTS_7_OCT_SUPPLIERS = ['GO DGTL']
