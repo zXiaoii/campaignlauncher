@@ -332,9 +332,11 @@ export function guessAccountDetails<
     ? 'GO DGTL'
     : /\bADSC\b/.test(upper)
       ? 'ADSC'
-      : /\bRHKA\b/.test(upper)
-        ? 'RHKA'
-        : undefined
+      : /\bADSOL\b/.test(upper)
+        ? 'ADSOL'
+        : /\bRHKA\b/.test(upper)
+          ? 'RHKA'
+          : undefined
 
   // "… - AUS | AD 3 - …" — the market label the ADSC/RHKA panels use.
   const marketLabel = name.match(/-\s*([A-Za-z ]+?)\s*\|/)?.[1]?.trim().toUpperCase()

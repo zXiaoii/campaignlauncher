@@ -246,7 +246,12 @@ killed** (`killAll` + `resumeAll`, 7 Oct 2026), is Charles's "reset all of my ca
 done the safe way: every active CBO in every market is marked killed, nothing is
 deleted, Danny's history stays. A launch still in flight is cancelled first (planned ad
 set and both tasks go) so its CBO is killed too, and every held ad account is taken off
-hold. The next export import then brings back what is running as new CBOs.
+hold. The next export import then brings back what is running as new CBOs. The sixth,
+**Ad accounts — match the 7 Oct panels** (`accounts` + `matchSuppliers`,
+`src/data/accounts7Oct.ts`), makes the directory match the two supplier panels Charles
+pasted, active accounts only: 33 GO DGTL, 9 RHKA and 6 of the new **ADSOL** tag. Missing
+accounts are created with market, supplier, panel label and timezone; a GO DGTL / RHKA /
+ADSOL account the panels no longer list is retired.
 
 ## Apply review — the analyzer's workbook drives the app
 

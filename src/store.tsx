@@ -19,6 +19,7 @@ import {
 import { clearSession, getSession, saveSession } from './auth'
 import { now } from './clock'
 import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './db'
+import type { AccountSpec } from './data/accounts7Oct'
 import { findMigration } from './data/migrations'
 import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME, productKey } from './importing'
 import { groupsToImportItems, planExport } from './importPlan'
@@ -327,6 +328,8 @@ type Action =
       adAccountNumber?: string
       store?: string
       supplier?: string
+      supplierRef?: string
+      timezone?: string
       actorId: string
     }
   | {
@@ -572,6 +575,8 @@ export interface MigrationPlan {
   cancelAdsetIds: string[]
   /** Held ad accounts the job takes off hold. */
   resumeIds: string[]
+  /** Panel accounts the directory does not have yet. */
+  createAccounts: AccountSpec[]
 }
 
 /** Computed against the live database at click time, so it is always current. */
@@ -590,6 +595,18 @@ export function planMigration(db: Db, id: string): MigrationPlan {
     const g = guessAccountDetails(p.displayName, db.countries, db.adAccounts)
     if (g.countryId) record.push({ displayName: p.displayName, countryId: g.countryId, supplier: g.supplier, timezone: p.timezone })
     else unplaced.push(p.displayName)
+  }
+  // Supplier panels: whatever they list and the directory lacks is created; whatever
+  // the directory has from those suppliers and the panels no longer list is retired.
+  const specs = m.accounts ?? []
+  const createAccounts = specs.filter((s) => !matchAccount(s.displayName, db.adAccounts))
+  if (specs.length > 0 && m.matchSuppliers?.length) {
+    const listed = new Set(specs.map((s) => matchAccount(s.displayName, db.adAccounts)?.id).filter(Boolean))
+    for (const a of db.adAccounts) {
+      if (a.status !== 'OFFBOARDED' && a.supplier && m.matchSuppliers.includes(a.supplier) && !listed.has(a.id) && !retireIds.includes(a.id)) {
+        retireIds.push(a.id)
+      }
+    }
   }
   // Import is planned against the state *after* retiring: a killed CBO must not be
   // treated as "already here" for a same-named new one on a fresh account.
@@ -636,6 +653,7 @@ export function planMigration(db: Db, id: string): MigrationPlan {
     killBlocked: m.killAll ? [] : inFlight.map((c) => c.name),
     cancelAdsetIds: m.killAll ? inFlight.flatMap((c) => plannedAdsets(afterRetire, c.id).map((a) => a.id)) : [],
     resumeIds: m.resumeAll ? afterRetire.adAccounts.filter((a) => a.onHold && a.status !== 'OFFBOARDED').map((a) => a.id) : [],
+    createAccounts,
     reason: m.reason,
     retireIds,
     record,
@@ -697,6 +715,19 @@ function reducer(state: Db, action: Action): Db {
     for (const item of plan.importItems) {
       next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
     }
+    for (const s of plan.createAccounts) {
+      next = reducer(next, {
+        type: 'ACCOUNT_CREATE',
+        countryId: s.countryId,
+        displayName: s.displayName,
+        adAccountNumber: s.number,
+        store: s.store,
+        supplier: s.supplier,
+        supplierRef: s.supplierRef,
+        timezone: s.timezone,
+        actorId: action.actorId,
+      })
+    }
     for (const adsetId of plan.cancelAdsetIds) {
       next = reducer(next, { type: 'LAUNCH_CANCEL', adsetId, actorId: action.actorId })
     }
@@ -715,6 +746,7 @@ function reducer(state: Db, action: Action): Db {
       campaigns: plan.importItems.length,
       held: plan.holdIds.length,
       resumed: plan.resumeIds.length,
+      accounts: plan.createAccounts.length,
     })
     return out
   }
@@ -1583,6 +1615,8 @@ function reducer(state: Db, action: Action): Db {
           adAccountNumber,
           store: action.store?.trim() || undefined,
           supplier: action.supplier?.trim() || undefined,
+          supplierRef: action.supplierRef?.trim() || undefined,
+          timezone: action.timezone?.trim() || undefined,
           status: 'ACTIVE',
         },
       ]

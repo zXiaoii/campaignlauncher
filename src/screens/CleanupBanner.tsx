@@ -46,10 +46,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
     plan.importItems.length === 0 &&
     plan.holdIds.length === 0 &&
     plan.killIds.length === 0 &&
-    plan.resumeIds.length === 0
+    plan.resumeIds.length === 0 &&
+    plan.createAccounts.length === 0
   if (nothing) return null
   const killing = plan.killIds.length > 0
   const resuming = plan.resumeIds.length > 0
+  const adding = plan.createAccounts.length > 0
 
   const retiring = plan.retireIds.length > 0 || plan.record.length > 0
   const importing = plan.importItems.length > 0
@@ -71,9 +73,17 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
         <Chip tone="accent">{m.chip}</Chip>
         <span className="text-[13px]">
           <strong>{m.title}:</strong>{' '}
+          {adding && (
+            <>
+              add {plan.createAccounts.length} ad {plan.createAccounts.length === 1 ? 'account' : 'accounts'} from the panels (market, supplier
+              label and timezone filled in).{' '}
+            </>
+          )}
           {retiring && (
             <>
-              retire {plan.retireIds.length} banned {plan.retireIds.length === 1 ? 'account' : 'accounts'}
+              {m.accounts ? 'Retire' : 'retire'} {plan.retireIds.length} {m.accounts ? '' : 'banned '}
+              {plan.retireIds.length === 1 ? 'account' : 'accounts'}
+              {m.accounts ? ' no longer on a panel' : ''}
               {plan.record.length > 0 && ` (+${plan.record.length} recorded)`} and kill their {killedCbos} {killedCbos === 1 ? 'CBO' : 'CBOs'}.{' '}
             </>
           )}
@@ -135,7 +145,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           onClick={() => {
             if (
               !window.confirm(
-                `Apply "${m.title}" now? ${
+                `Apply "${m.title}" now? ${adding ? `${plan.createAccounts.length} ad accounts → added. ` : ''}${
                   retiring ? `${plan.retireIds.length} accounts → off-boarded, ${killedCbos} CBOs → killed. ` : ''
                 }${holding ? `${plan.holdIds.length} accounts → on hold. ` : ''}${
                   plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches → cancelled. ` : ''
@@ -152,6 +162,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                 kind: 'Applied',
                 title: m.title,
                 body: [
+                  adding ? `${plan.createAccounts.length} ad accounts added` : '',
                   retiring ? `${plan.retireIds.length} accounts retired` : '',
                   holding ? `${plan.holdIds.length} accounts on hold` : '',
                   plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches cancelled` : '',
@@ -182,6 +193,16 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
 
       {open && (
         <div className="px-3.5 pb-3 grid gap-2 grid-cols-2 max-[900px]:grid-cols-1">
+          {adding && (
+            <Block className="max-h-64 overflow-auto">
+              {[
+                `ADD (${plan.createAccounts.length})`,
+                ...plan.createAccounts.map(
+                  (s) => `  ${s.displayName}   · ${db.countries.find((c) => c.id === s.countryId)?.code ?? s.countryId}${s.supplierRef ? ` · ${s.supplierRef}` : ''}`,
+                ),
+              ].join('\n')}
+            </Block>
+          )}
           {retiring && (
             <Block className="max-h-64 overflow-auto">
               {[

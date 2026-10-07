@@ -7,6 +7,7 @@
 
 import type { MetaExport, PastedAccount } from '../importing'
 import { ALL_STORES_21_SEP } from './allStores21Sep'
+import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
@@ -43,6 +44,13 @@ export interface PreparedMigration {
   killAll?: boolean
   /** Take every held ad account off hold. */
   resumeAll?: boolean
+  /** Ad accounts from the supplier panels: created when the directory lacks them. */
+  accounts?: AccountSpec[]
+  /**
+   * The panels are the whole truth for these suppliers: an account of theirs in the
+   * directory that no spec names is retired (off-boarded, its CBOs killed).
+   */
+  matchSuppliers?: string[]
 }
 
 const NO_BOOK: MetaExport = { rows: [], columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' }, accounts: [] }
@@ -116,6 +124,21 @@ export const MIGRATIONS: PreparedMigration[] = [
     book: NO_BOOK,
     killAll: true,
     resumeAll: true,
+  },
+  {
+    // Charles, 7 Oct 2026: both supplier panels pasted, active accounts only —
+    // "these are the ad accounts we have right now". The directory is made to match:
+    // missing accounts are added with their market, supplier label and timezone;
+    // GO DGTL / RHKA accounts no longer on a panel are retired.
+    id: '2026-10-07-ad-accounts',
+    chip: 'Prepared update · 7 Oct',
+    title: 'Ad accounts — match the 7 Oct panels',
+    bookLabel: '',
+    reason: 'Not on the supplier panel on 7 Oct 2026',
+    banned: [],
+    book: NO_BOOK,
+    accounts: ACCOUNTS_7_OCT,
+    matchSuppliers: ACCOUNTS_7_OCT_SUPPLIERS,
   },
 ]
 
