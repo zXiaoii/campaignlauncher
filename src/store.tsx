@@ -22,7 +22,7 @@ import { loadDatabase, onRemoteChange, persistChanges, resetDatabase } from './d
 import type { AccountSpec } from './data/accounts7Oct'
 import { findMigration } from './data/migrations'
 import { guessAccountDetails, isPlaceholderAdset, matchAccount, PLACEHOLDER_ADSET_NAME, productKey } from './importing'
-import { groupsToImportItems, planExport } from './importPlan'
+import { exportGroupKey, groupsToImportItems, planExport } from './importPlan'
 import { SignIn } from './screens/SignIn'
 import {
   buildAdsetName,
@@ -645,7 +645,16 @@ export function planMigration(db: Db, id: string): MigrationPlan {
         .map((a) => a.id),
     ),
   ]
-  const groups = planExport(afterRetire, '', m.book, { skipOff: true, products: {}, accounts: {}, deriveProducts: true })
+  // The job's product overrides are by campaign name; planExport wants them by
+  // group key (account + campaign), so every row that carries the name gets one.
+  const squashName = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase()
+  const overrides = Object.entries(m.products ?? {}).map(([name, product]) => [squashName(name), product] as const)
+  const products: Record<string, string> = {}
+  for (const r of m.book.rows) {
+    const hit = overrides.find(([name]) => name === squashName(r.campaign))
+    if (hit) products[exportGroupKey(m.book, r)] = hit[1]
+  }
+  const groups = planExport(afterRetire, '', m.book, { skipOff: true, products, accounts: {}, deriveProducts: true })
   const held = new Set(m.holdSuppliers ?? [])
   const words = (m.killWords ?? []).map((w) => productKey(w)).filter(Boolean)
   const byWord = campaignsByKillWord(afterRetire, m.killWords ?? [])

@@ -10,6 +10,7 @@ import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { CANADA_7_OCT } from './canada7Oct'
+import { UK_7_OCT } from './uk7Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -45,6 +46,11 @@ export interface PreparedMigration {
   killAll?: boolean
   /** Take every held ad account off hold. */
   resumeAll?: boolean
+  /**
+   * Product per campaign name, for names the reader cannot work out on its own
+   * ("Fleixivita RELAUNCH OLD WINNERS" → Flexivita). Case- and space-insensitive.
+   */
+  products?: Record<string, string>
   /** Ad accounts from the supplier panels: created when the directory lacks them. */
   accounts?: AccountSpec[]
   /**
@@ -157,6 +163,19 @@ export const MIGRATIONS: PreparedMigration[] = [
     book: CANADA_7_OCT,
     killWords: ['Esorepair'],
     matchCountryIds: ['c_ca'],
+  },
+  {
+    // Charles, 7 Oct 2026: the UK export after the clean slate. The misspelt
+    // "Fleixivita" CBO is Flexivita.
+    id: '2026-10-07-uk',
+    chip: 'Prepared update · 7 Oct',
+    title: 'UK — match the 7 Oct export',
+    bookLabel: 'UK from your 7 Oct export',
+    reason: '',
+    banned: [],
+    book: UK_7_OCT,
+    matchCountryIds: ['c_uk'],
+    products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
   },
 ]
 

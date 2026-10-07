@@ -257,7 +257,11 @@ the 7 Oct export** (`src/data/canada7Oct.ts`, kill word Esorepair), is the first
 after the clean slate: Canada's running CBOs come back as fresh records. Two rules were
 added for it: an off-boarded account the book shows spending is **brought back** before
 the import, and kill words are checked again after the import, so a CBO the book brings
-in on a killed product (EsoRepair) is imported and marked killed in the same click.
+in on a killed product (EsoRepair) is imported and marked killed in the same click. The
+eighth, **UK — match the 7 Oct export** (`src/data/uk7Oct.ts`), is the same for the UK; a
+job can now carry `products` — product per campaign name — for names the reader cannot
+work out ("Fleixivita RELAUNCH OLD WINNERS" → Flexivita), and "RELAUNCH", "OLD",
+"WINNERS" are no longer taken for part of a product name.
 
 ## Apply review — the analyzer's workbook drives the app
 
