@@ -37,9 +37,12 @@ export interface PreparedMigration {
   matchCountryIds?: string[]
   /**
    * Clean slate: every active CBO in every market is marked killed (history kept,
-   * revivable). A CBO with a launch still in flight is left alone — cancel it first.
+   * revivable). A launch still in flight is cancelled first — its planned ad set and
+   * both tasks go — so the CBO can be killed too.
    */
   killAll?: boolean
+  /** Take every held ad account off hold. */
+  resumeAll?: boolean
 }
 
 const NO_BOOK: MetaExport = { rows: [], columns: { campaign: 'Campaign name', adset: 'Ad set name', account: 'Account name' }, accounts: [] }
@@ -101,8 +104,9 @@ export const MIGRATIONS: PreparedMigration[] = [
   },
   {
     // Charles, 7 Oct 2026: "reset all of my campaigns" — chosen as mark-all-killed so
-    // nothing is deleted and Danny's history stays. Fresh exports follow as a new
-    // import job; what is running comes back as new CBOs.
+    // nothing is deleted and Danny's history stays; "also the inflight cbo, also put
+    // the onhold ad accounts into resume". Fresh exports follow as a new import job;
+    // what is running comes back as new CBOs.
     id: '2026-10-07-kill-all',
     chip: 'Prepared reset · 7 Oct',
     title: 'Clean slate — mark every CBO killed',
@@ -111,6 +115,7 @@ export const MIGRATIONS: PreparedMigration[] = [
     banned: [],
     book: NO_BOOK,
     killAll: true,
+    resumeAll: true,
   },
 ]
 

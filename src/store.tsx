@@ -568,6 +568,10 @@ export interface MigrationPlan {
   killIds: string[]
   /** Same, but with a launch still planned — left alone and named, not silently skipped. */
   killBlocked: string[]
+  /** Clean slate only: planned ad sets cancelled first so their CBOs can be killed. */
+  cancelAdsetIds: string[]
+  /** Held ad accounts the job takes off hold. */
+  resumeIds: string[]
 }
 
 /** Computed against the live database at click time, so it is always current. */
@@ -624,9 +628,14 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   const inPlay = new Set(afterRetire.adAccounts.filter((a) => a.status !== 'OFFBOARDED').map((a) => a.id))
   const everything = m.killAll ? afterRetire.campaigns.filter((c) => c.status === 'ACTIVE' && inPlay.has(c.adAccountId)) : []
   const doomed = [...new Map([...byWord, ...notInBook, ...everything].map((c) => [c.id, c])).values()]
+  // A clean slate cancels the launches still in flight so those CBOs go too; any
+  // other job leaves an in-flight CBO alone.
+  const inFlight = doomed.filter((c) => plannedAdsets(afterRetire, c.id).length > 0)
   return {
-    killIds: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length === 0).map((c) => c.id),
-    killBlocked: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length > 0).map((c) => c.name),
+    killIds: (m.killAll ? doomed : doomed.filter((c) => !inFlight.includes(c))).map((c) => c.id),
+    killBlocked: m.killAll ? [] : inFlight.map((c) => c.name),
+    cancelAdsetIds: m.killAll ? inFlight.flatMap((c) => plannedAdsets(afterRetire, c.id).map((a) => a.id)) : [],
+    resumeIds: m.resumeAll ? afterRetire.adAccounts.filter((a) => a.onHold && a.status !== 'OFFBOARDED').map((a) => a.id) : [],
     reason: m.reason,
     retireIds,
     record,
@@ -688,16 +697,24 @@ function reducer(state: Db, action: Action): Db {
     for (const item of plan.importItems) {
       next = reducer(next, { type: 'CAMPAIGN_IMPORT', ...item, actorId: action.actorId })
     }
+    for (const adsetId of plan.cancelAdsetIds) {
+      next = reducer(next, { type: 'LAUNCH_CANCEL', adsetId, actorId: action.actorId })
+    }
     for (const campaignId of plan.killIds) {
       next = reducer(next, { type: 'CAMPAIGN_SET_KILLED', campaignId, killed: true, actorId: action.actorId })
+    }
+    if (plan.resumeIds.length > 0) {
+      next = reducer(next, { type: 'ACCOUNTS_SET_HOLD', accountIds: plan.resumeIds, onHold: false, actorId: action.actorId })
     }
     const out: Db = { ...next }
     log(out, action.actorId, 'migration', action.id, 'MIGRATION_APPLIED', {
       killed: plan.killIds.length,
+      cancelled: plan.cancelAdsetIds.length,
       retired: plan.retireIds.length,
       recorded: plan.record.length,
       campaigns: plan.importItems.length,
       held: plan.holdIds.length,
+      resumed: plan.resumeIds.length,
     })
     return out
   }

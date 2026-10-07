@@ -242,10 +242,11 @@ in a matched market that is not in them is no longer running and is marked kille
 per-market book job, which were built from partial pivot pastes. Jobs are
 order-independent: imports only add what is missing, and an account created from a
 supplier that is wholly on hold starts held. The fifth, **Clean slate — mark every CBO
-killed** (`killAll`, 7 Oct 2026), is Charles's "reset all of my campaigns" done the
-safe way: every active CBO in every market is marked killed, nothing is deleted, Danny's
-history stays, and a CBO with a launch in flight is left alone until that launch is
-cancelled. The next export import then brings back what is running as new CBOs.
+killed** (`killAll` + `resumeAll`, 7 Oct 2026), is Charles's "reset all of my campaigns"
+done the safe way: every active CBO in every market is marked killed, nothing is
+deleted, Danny's history stays. A launch still in flight is cancelled first (planned ad
+set and both tasks go) so its CBO is killed too, and every held ad account is taken off
+hold. The next export import then brings back what is running as new CBOs.
 
 ## Apply review — the analyzer's workbook drives the app
 

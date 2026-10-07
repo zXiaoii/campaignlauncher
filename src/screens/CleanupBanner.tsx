@@ -45,9 +45,11 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
     plan.record.length === 0 &&
     plan.importItems.length === 0 &&
     plan.holdIds.length === 0 &&
-    plan.killIds.length === 0
+    plan.killIds.length === 0 &&
+    plan.resumeIds.length === 0
   if (nothing) return null
   const killing = plan.killIds.length > 0
+  const resuming = plan.resumeIds.length > 0
 
   const retiring = plan.retireIds.length > 0 || plan.record.length > 0
   const importing = plan.importItems.length > 0
@@ -96,7 +98,20 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                   ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} no longer running (not in the exports)`
                   : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
               as killed (revivable) — see the list under Show details.
-              {m.killAll && ' The workspace empties; ad accounts, products and history stay. Your next export import brings back what is running.'}{' '}
+              {m.killAll &&
+                ` The workspace empties; ad accounts, products and history stay. Your next export import brings back what is running.${
+                  plan.cancelAdsetIds.length
+                    ? ` ${plan.cancelAdsetIds.length} ${plan.cancelAdsetIds.length === 1 ? 'launch' : 'launches'} still in flight ${
+                        plan.cancelAdsetIds.length === 1 ? 'is' : 'are'
+                      } cancelled first — the planned ad set and its creative and setup tasks go.`
+                    : ''
+                }`}{' '}
+            </>
+          )}
+          {resuming && (
+            <>
+              Take {plan.resumeIds.length} held ad {plan.resumeIds.length === 1 ? 'account' : 'accounts'} off hold, so new launches can go
+              anywhere again.{' '}
             </>
           )}
           {plan.killBlocked.length > 0 && (
@@ -122,7 +137,9 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               !window.confirm(
                 `Apply "${m.title}" now? ${
                   retiring ? `${plan.retireIds.length} accounts → off-boarded, ${killedCbos} CBOs → killed. ` : ''
-                }${holding ? `${plan.holdIds.length} accounts → on hold. ` : ''}${killing ? `${plan.killIds.length} CBOs → killed. ` : ''}${
+                }${holding ? `${plan.holdIds.length} accounts → on hold. ` : ''}${
+                  plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches → cancelled. ` : ''
+                }${killing ? `${plan.killIds.length} CBOs → killed. ` : ''}${resuming ? `${plan.resumeIds.length} accounts → resumed. ` : ''}${
                   importing ? `${plan.importItems.length} CBOs imported (${adsets} ad sets). ` : ''
                 }Nothing that went live is deleted. This runs once.`,
               )
@@ -137,7 +154,9 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                 body: [
                   retiring ? `${plan.retireIds.length} accounts retired` : '',
                   holding ? `${plan.holdIds.length} accounts on hold` : '',
+                  plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches cancelled` : '',
                   killing ? `${plan.killIds.length} CBOs marked killed` : '',
+                  resuming ? `${plan.resumeIds.length} accounts resumed` : '',
                   importing ? `${plan.importItems.length} CBOs and ${adsets} ad sets imported` : '',
                   newAccounts ? `${newAccounts} new ad accounts created` : '',
                 ]
@@ -190,6 +209,23 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {holding && (
             <Block className="max-h-64 overflow-auto">
               {[`PUT ON HOLD (${plan.holdIds.length})`, ...plan.holdIds.map((id) => `  ${adAccount(db, id)?.displayName ?? id}`)].join('\n')}
+            </Block>
+          )}
+          {(resuming || plan.cancelAdsetIds.length > 0) && (
+            <Block className="max-h-64 overflow-auto">
+              {[
+                ...(plan.cancelAdsetIds.length
+                  ? [
+                      `CANCEL IN-FLIGHT LAUNCHES (${plan.cancelAdsetIds.length})`,
+                      ...plan.cancelAdsetIds.map((id) => {
+                        const a = db.adsets.find((x) => x.id === id)
+                        return `  ${a?.name ?? id}   · ${db.campaigns.find((c) => c.id === a?.campaignId)?.name ?? ''}`
+                      }),
+                      '',
+                    ]
+                  : []),
+                ...(resuming ? [`RESUME (${plan.resumeIds.length})`, ...plan.resumeIds.map((id) => `  ${adAccount(db, id)?.displayName ?? id}`)] : []),
+              ].join('\n')}
             </Block>
           )}
           {importing && (
