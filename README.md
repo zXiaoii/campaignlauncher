@@ -436,7 +436,10 @@ Briefs** — Yzah's queue, read-only except for the brief and the priority. Open
 task's creative batch (`CREATIVE_SET_BRIEF`); Yzah sees it at once under Direction and
 References, marked *brief by Mark · time*. Tasks with nothing in the brief carry a *needs
 brief* chip and have their own filter, so trigger batches and review test batches that
-still need an angle are easy to find. Locked once setup completes the launch.
+still need an angle are easy to find. Above the fields, **What ran last in this CBO**
+lists the CBO's latest ad sets — framework, launch date, live or not, the Drive folder
+when the app has it ("ads in Meta only" for imported ones), and their briefs — so the
+next swipes are picked against what ran. Locked once setup completes the launch.
 
 ## Local database
 

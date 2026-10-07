@@ -49,7 +49,7 @@ import {
 } from '../labels'
 import { dueLabel, formatLaunchDate, formatTime, isLate } from '../naming'
 import { canWrite } from '../permissions'
-import { creativeRows, rowForCreativeTask, userName } from '../selectors'
+import { adsetsInCampaign, creativeRows, rowForCreativeTask, userName } from '../selectors'
 import { useActions, useStore } from '../store'
 import type { CreativeBatch, CreativePriority, CreativeReference } from '../types'
 
@@ -192,6 +192,62 @@ export function CreativeTasks() {
 
       {openTaskId && <CreativeTaskDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />}
     </>
+  )
+}
+
+/**
+ * The CBO's most recent ad sets, for whoever is writing the brief: what went live,
+ * when, with which framework, and the Drive folder when the app has it — so the
+ * next swipes are chosen against what ran, not from memory.
+ */
+function PreviousAdsets({ campaignId, excludeAdsetId }: { campaignId: string; excludeAdsetId: string }) {
+  const { db } = useStore()
+  const previous = adsetsInCampaign(db, campaignId)
+    .filter((a) => a.id !== excludeAdsetId && a.status !== 'PLANNED')
+    .sort((a, b) => ((a.launchedAt ?? '') < (b.launchedAt ?? '') ? 1 : -1))
+    .slice(0, 4)
+  if (previous.length === 0) {
+    return <p className="m-0 text-fg-secondary">Nothing has run in this CBO yet — this is its first batch.</p>
+  }
+  return (
+    <div className="grid gap-1.5">
+      {previous.map((a) => {
+        const b = db.creativeBatches.find((x) => x.id === a.creativeBatchId)
+        return (
+          <div key={a.id} className="px-3 py-2 border border-line rounded-lg bg-surface">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className={cn(mono, 'font-medium')}>{a.name}</span>
+              <span className="text-xs text-fg-secondary">{CONCEPT_TYPE_LABEL[a.conceptType]}</span>
+              <Chip tone={a.status === 'ACTIVE' ? 'success' : 'quiet'}>{a.status === 'ACTIVE' ? 'live' : a.status.toLowerCase()}</Chip>
+              {a.launchedAt && <span className="text-xs text-fg-tertiary">launched {formatLaunchDate(new Date(a.launchedAt))}</span>}
+              <span className="flex-1" />
+              {b?.driveUrl ? (
+                <LinkButton href={b.driveUrl}>Open Drive</LinkButton>
+              ) : (
+                <span className="text-xs text-fg-tertiary" title="This ad set was imported from Meta — its ads live only there.">
+                  ads in Meta only
+                </span>
+              )}
+            </div>
+            {(b?.angle || b?.direction) && (
+              <div className="mt-1 text-xs text-fg-secondary">
+                {b.angle && <strong className="text-fg font-medium">{b.angle}. </strong>}
+                {b.direction}
+              </div>
+            )}
+            {(b?.references.length ?? 0) > 0 && (
+              <div className="mt-1 text-xs">
+                {b!.references.map((r, i) => (
+                  <a key={i} href={r.url} target="_blank" rel="noreferrer" className="mr-3 text-accent border-b border-accent-border hover:border-accent">
+                    {r.label ?? r.url}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -352,6 +408,12 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
           ].join('\n')}
         </Block>
       </Section>
+
+      {canBrief && editable && (
+        <Section title="What ran last in this CBO">
+          <PreviousAdsets campaignId={row.campaign.id} excludeAdsetId={row.adset.id} />
+        </Section>
+      )}
 
       {canBrief && editable && (
         <Section
