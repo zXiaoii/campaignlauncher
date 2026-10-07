@@ -620,7 +620,10 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   const notInBook = afterRetire.campaigns.filter(
     (c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && !inBook.has(c.id),
   )
-  const doomed = [...new Map([...byWord, ...notInBook].map((c) => [c.id, c])).values()]
+  // Clean slate: every active CBO on an account still in play, in every market.
+  const inPlay = new Set(afterRetire.adAccounts.filter((a) => a.status !== 'OFFBOARDED').map((a) => a.id))
+  const everything = m.killAll ? afterRetire.campaigns.filter((c) => c.status === 'ACTIVE' && inPlay.has(c.adAccountId)) : []
+  const doomed = [...new Map([...byWord, ...notInBook, ...everything].map((c) => [c.id, c])).values()]
   return {
     killIds: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length === 0).map((c) => c.id),
     killBlocked: doomed.filter((c) => plannedAdsets(afterRetire, c.id).length > 0).map((c) => c.name),

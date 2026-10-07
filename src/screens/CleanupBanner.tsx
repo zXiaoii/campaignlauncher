@@ -90,10 +90,13 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {killing && (
             <>
               Mark {plan.killIds.length}{' '}
-              {m.matchCountryIds?.length
-                ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} no longer running (not in the exports)`
-                : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
-              as killed (revivable) — see the list under Show details.{' '}
+              {m.killAll
+                ? `${plan.killIds.length === 1 ? 'CBO' : 'CBOs'} — every active one in every market —`
+                : m.matchCountryIds?.length
+                  ? `${plan.killIds.length === 1 ? 'CBO that is' : 'CBOs that are'} no longer running (not in the exports)`
+                  : `${(m.killWords ?? []).join(' / ')} ${plan.killIds.length === 1 ? 'CBO' : 'CBOs'}`}{' '}
+              as killed (revivable) — see the list under Show details.
+              {m.killAll && ' The workspace empties; ad accounts, products and history stay. Your next export import brings back what is running.'}{' '}
             </>
           )}
           {plan.killBlocked.length > 0 && (

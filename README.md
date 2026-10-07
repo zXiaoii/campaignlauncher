@@ -230,7 +230,7 @@ database.
 sent — a banned list, a book (rows of account / campaign / ad set), suppliers to put on
 hold, products declared killed, markets to **match** (active CBOs there that are not in
 the book are marked killed) — and shows as its own banner until applied once. Current
-jobs, four: the 16 Sep restriction wave (retires the banned accounts; imports nothing),
+jobs, five: the 16 Sep restriction wave (retires the banned accounts; imports nothing),
 RHKA on hold, **Canada & US — match the 21 Sep exports** (`src/data/allStores21Sep.ts`:
 CANADA 17 CBOs, US 1 at campaign level, so it arrives with the *ad sets not imported yet*
 placeholder) and **UK & AUS — match the 22 Sep exports** (`src/data/allStores22Sep.ts`:
@@ -241,7 +241,11 @@ in a matched market that is not in them is no longer running and is marked kille
 (revivable); ad sets are never archived by a match. These replace every earlier
 per-market book job, which were built from partial pivot pastes. Jobs are
 order-independent: imports only add what is missing, and an account created from a
-supplier that is wholly on hold starts held.
+supplier that is wholly on hold starts held. The fifth, **Clean slate — mark every CBO
+killed** (`killAll`, 7 Oct 2026), is Charles's "reset all of my campaigns" done the
+safe way: every active CBO in every market is marked killed, nothing is deleted, Danny's
+history stays, and a CBO with a launch in flight is left alone until that launch is
+cancelled. The next export import then brings back what is running as new CBOs.
 
 ## Apply review — the analyzer's workbook drives the app
 
