@@ -237,7 +237,7 @@ export const NAV: Record<Role, NavItem[]> = {
   CEO: [
     { key: 'overview', label: 'Overview' },
     { key: 'launches', label: 'Launches' },
-    { key: 'countries', label: 'Countries' },
+    { key: 'countries', label: 'Campaigns' },
     { key: 'creative', label: 'Creative Tasks' },
     { key: 'setup', label: 'Setup Tasks' },
     { key: 'accounts', label: 'Ad Accounts' },

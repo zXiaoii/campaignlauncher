@@ -145,8 +145,8 @@ function Shell() {
         )}
         {active === 'countries' && (
           <Workspace
-            title="Countries"
-            sub="The same campaign structure Charles sees, read-only."
+            title="Campaigns"
+            sub="Every market, ad account and CBO as Charles sees them — read-only. Accounts with something running come first."
             readOnly
             onOpenAdset={setAdsetId}
           />

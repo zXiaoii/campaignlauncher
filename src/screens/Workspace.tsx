@@ -1,5 +1,6 @@
 // Charles's visual workspace (PRD §5) and — with `readOnly` — Danny's mirrored
-// Countries view (§12.3). Country → ad account → campaign → up to four ad sets.
+// Workspace (Charles) / Campaigns (Danny, read-only) view (§12.3). Country → ad
+// account → campaign → up to four ad sets.
 //
 // Three layouts over the same data:
 //   Grid  — uniform cards, slot state as the headline (the §5.1 layout)
@@ -217,6 +218,9 @@ export function Workspace({
     .filter(({ account, campaigns }) =>
       q || filtering ? campaigns.length > 0 || (q && account.displayName.toLowerCase().includes(q)) : true,
     )
+    // Accounts with something running come first; empty ones (fresh from the
+    // supplier, nothing launched yet) sit together at the bottom, still in number order.
+    .sort((a, b) => Number(b.campaigns.length > 0) - Number(a.campaigns.length > 0))
 
   const totalCbos = visible.reduce((n, v) => n + v.campaigns.length, 0)
   const allCollapsed = visible.every((v) => collapsed.includes(v.account.id))
