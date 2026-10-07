@@ -450,7 +450,9 @@ second. Yzah sees it, cannot change it (`editBrief` permission — Charles and M
 
 A task called "C2 iterations" tells Yzah nothing on its own, so the brief can be written
 after the launch exists, by **Charles or Mark**. Mark has a third tab, **Creative
-Briefs** — Yzah's queue, read-only except for the brief and the priority. Open a task:
+Tasks** — Yzah's queue, where he can write the brief, set the priority, and (since 8 Oct
+2026, as the second creative) **submit the Drive link himself** exactly as Yzah does; the
+task records who handed it in. Open a task:
 **Brief for Yzah** has the creative angle, what to make, optional hooks, and references
 (one link per line, a note after the link if it helps). **Save brief** writes it to the
 task's creative batch (`CREATIVE_SET_BRIEF`); Yzah sees it at once under Direction and

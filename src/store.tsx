@@ -1527,6 +1527,7 @@ function reducer(state: Db, action: Action): Db {
               ...t,
               status: 'SUBMITTED',
               submittedAt: stamp,
+              submittedBy: action.actorId,
               submissionNote: action.note?.trim() || undefined,
             }
           : t,

@@ -241,6 +241,8 @@ export interface CreativeTask {
   status: CreativeStatus
   dueAt: string
   submittedAt?: string
+  /** Who handed it in — Yzah, or Mark as the second creative. Unset on older rows. */
+  submittedBy?: string
   submissionNote?: string
   /**
    * Yzah's channel back to Charles: "need more references", "source Drive is

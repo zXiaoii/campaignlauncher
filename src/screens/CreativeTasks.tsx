@@ -1,7 +1,8 @@
 // Yzah's creative-task table and drawer (PRD §9). Charles sees the same table for
-// all tasks and sets priority; Danny gets a read-only summary. Mark sees it too
-// (as "Creative Briefs"): he and Charles write the brief — angle, direction, hooks,
-// reference ads — because "C2 iterations" on its own tells Yzah nothing.
+// all tasks and sets priority; Danny gets a read-only summary. Mark sees it too: he
+// and Charles write the brief — angle, direction, hooks, reference ads — because "C2
+// iterations" on its own tells Yzah nothing, and since 8 Oct 2026 Mark can also make
+// the creatives himself and submit the Drive link, as a second creative.
 //
 // Yzah can edit her submission any time before setup completes the launch, and
 // can raise a request back to Charles ("need the full batch") that shows as a flag
@@ -101,13 +102,15 @@ export function CreativeTasks() {
   return (
     <>
       <PageHead
-        title={currentUser.role === 'SETUP_QA' ? 'Creative Briefs' : 'Creative Tasks'}
+        title="Creative Tasks"
         sub={
           isYzah
             ? 'Highest priority first. Submit a Drive link to hand a task to setup — you can update it until the launch goes live.'
-            : canBrief
-              ? 'Every creative task. Open one to write its brief for Yzah — the angle, what to make, and the reference ads.'
-              : 'Every creative task. A task exists only when creative work is actually required.'
+            : currentUser.role === 'SETUP_QA'
+              ? 'Every creative task. Write the brief, or make the creatives yourself and submit the Drive link — either hands the task to setup.'
+              : canBrief
+                ? 'Every creative task. Open one to write its brief for Yzah — the angle, what to make, and the reference ads.'
+                : 'Every creative task. A task exists only when creative work is actually required.'
         }
       />
 
@@ -278,6 +281,8 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
   const isYzah = currentUser.role === 'CREATIVE'
   const isCharles = currentUser.role === 'MEDIA_BUYER'
   const canBrief = canWrite(currentUser.role, 'editBrief')
+  // Yzah, and Mark as the second creative: both hand the Drive link to setup.
+  const canSubmit = canWrite(currentUser.role, 'submitCreative')
   const briefDirty =
     angle.trim() !== (batch?.angle ?? '') ||
     direction.trim() !== (batch?.direction ?? '') ||
@@ -316,7 +321,7 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
           <CreativeStatusChip status={task.status} />
           {task.requestNote && <RequestChip note={task.requestNote} />}
           <span className="flex-1" />
-          {isYzah ? (
+          {canSubmit ? (
             <Button
               variant="primary"
               disabled={!editable || !drive.trim() || (isUpdate && !dirty)}
@@ -348,7 +353,7 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
             </Button>
           ) : (
             <span className="text-xs text-fg-secondary">
-              {canBrief ? 'The brief and priority are yours; submission is Yzah’s.' : 'Read-only — this queue belongs to Yzah.'}
+              {canBrief ? 'The brief and priority are yours; the Drive link is Yzah’s or Mark’s.' : 'Read-only — this queue belongs to Yzah and Mark.'}
             </span>
           )}
         </>
@@ -545,14 +550,23 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
 
       <Section
         title={isUpdate ? 'Submission — editable until setup completes' : 'Submission'}
-        trailing={task.submittedAt ? <span className="text-xs text-fg-tertiary">submitted {formatTime(task.submittedAt)}</span> : undefined}
+        trailing={
+          task.submittedAt ? (
+            <span className="text-xs text-fg-tertiary">
+              submitted {formatTime(task.submittedAt)}
+              {task.submittedBy ? ` by ${userName(db, task.submittedBy)}` : ''}
+            </span>
+          ) : undefined
+        }
       >
-        {!isYzah ? (
+        {!canSubmit ? (
           <Block>
             {[
               `STATUS   ${task.status}`,
               `DRIVE    ${batch?.driveUrl ?? 'not submitted'}`,
-              task.submittedAt ? `SUBMITTED ${formatTime(task.submittedAt)}` : null,
+              task.submittedAt
+                ? `SUBMITTED ${formatTime(task.submittedAt)}${task.submittedBy ? ` by ${userName(db, task.submittedBy)}` : ''}`
+                : null,
               task.submissionNote ? `NOTE     ${task.submissionNote}` : null,
             ]
               .filter(Boolean)

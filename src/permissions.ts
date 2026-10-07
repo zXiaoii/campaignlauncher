@@ -84,12 +84,16 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     SETUP_QA: 'full',
     STORE: 'none',
   },
+  /**
+   * Handing the finished creatives to setup (the Drive link). Yzah's job, and
+   * Mark's too since 8 Oct 2026 — he is the second creative pair of hands.
+   */
   submitCreative: {
     MEDIA_BUYER: 'read',
     CEO: 'read',
     CREATIVE: 'full',
     SETUP: 'read',
-    SETUP_QA: 'none',
+    SETUP_QA: 'full',
     STORE: 'none',
   },
   completeSetup: {
@@ -251,6 +255,6 @@ export const NAV: Record<Role, NavItem[]> = {
   SETUP_QA: [
     { key: 'setupOverview', label: 'Setup Overview' },
     { key: 'setupHistory', label: 'Setup History' },
-    { key: 'creative', label: 'Creative Briefs' },
+    { key: 'creative', label: 'Creative Tasks' },
   ],
 }
