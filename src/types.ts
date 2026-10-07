@@ -295,6 +295,35 @@ export interface SetupTask {
   checkNote?: string
 }
 
+/**
+ * A new product Charles wants launched, before anyone knows which ad account it
+ * goes in. It sits in the "New products to launch" container until someone on the
+ * setup team places it: picks the account, and the app creates the CBO, the ad set,
+ * the launch and the tasks from what Charles wrote here — exactly as if Charles had
+ * launched it into that account himself.
+ */
+export interface ProductLaunch {
+  id: string
+  productName: string
+  countryId: string
+  /** Charles's note to setup — offer, landing page, anything. Goes on the setup task. */
+  instructions?: string
+  /** Where the creatives come from: a Drive folder Charles has, or Yzah makes them. */
+  creative:
+    | { kind: 'OWN_DRIVE'; driveUrl: string }
+    | { kind: 'NEW'; quantity: number; angle?: string; direction?: string; references: CreativeReference[] }
+  conceptType: ConceptType
+  priority: CreativePriority
+  createdBy: string
+  createdAt: string
+  status: 'OPEN' | 'PLACED'
+  placedBy?: string
+  placedAt?: string
+  adAccountId?: string
+  campaignId?: string
+  launchId?: string
+}
+
 export interface Followup {
   id: string
   sourceAdsetId: string
@@ -324,5 +353,6 @@ export interface Db {
   creativeTasks: CreativeTask[]
   setupTasks: SetupTask[]
   followups: Followup[]
+  productLaunches: ProductLaunch[]
   activityLogs: ActivityLog[]
 }

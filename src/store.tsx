@@ -60,6 +60,7 @@ import type {
   CreativeReference,
   Db,
   LaunchMode,
+  ProductLaunch,
   Role,
   StoreChannel,
   User,
@@ -157,6 +158,9 @@ export interface CampaignImportInput {
   campaignType?: CampaignType
   adsets: ImportedAdsetInput[]
 }
+
+/** What Charles types when queuing a product — one request per market. */
+export type ProductLaunchInput = Pick<ProductLaunch, 'productName' | 'countryId' | 'instructions' | 'creative' | 'conceptType' | 'priority'>
 
 export interface NamePreview {
   accountDisplayName: string
@@ -383,6 +387,15 @@ type Action =
    * against the state the imports leave behind. See `review.ts`.
    */
   | { type: 'REVIEW_APPLY'; input: ReviewApplyInput; actorId: string }
+  /** Charles queues a product for a market; the setup team decides the account later. */
+  | { type: 'PRODUCT_LAUNCH_CREATE'; input: ProductLaunchInput; actorId: string }
+  /**
+   * Setup places a queued product: picks the ad account, and the CBO, ad set, launch
+   * and tasks are created from what Charles queued — the same CREATE_LAUNCH path, run
+   * on Charles's authority, with the placement itself logged to the setup person.
+   */
+  | { type: 'PRODUCT_LAUNCH_PLACE'; id: string; adAccountId: string; actorId: string }
+  | { type: 'PRODUCT_LAUNCH_REMOVE'; id: string; actorId: string }
   /** Wholesale replacement, used by "Reset data" after the local DB is reseeded. */
   | { type: 'REPLACE'; db: Db }
 
@@ -893,6 +906,80 @@ function reducer(state: Db, action: Action): Db {
       imported: input.importItems.length,
       killed,
       tests,
+    })
+    return out
+  }
+
+  if (action.type === 'PRODUCT_LAUNCH_PLACE') {
+    const actor = state.users.find((u) => u.id === action.actorId)
+    assertCanWrite(actor?.role ?? 'CREATIVE', 'productQueue')
+    const pl = state.productLaunches.find((p) => p.id === action.id)
+    if (!pl) throw new LaunchRuleError('That product is no longer in the queue.')
+    if (pl.status !== 'OPEN') throw new LaunchRuleError('That product has already been placed.')
+    const acc = adAccount(state, action.adAccountId)
+    if (!acc) throw new LaunchRuleError('Pick the ad account to place it in.')
+    if (acc.countryId !== pl.countryId) throw new LaunchRuleError('That ad account is in another market.')
+    if (acc.status === 'OFFBOARDED') throw new LaunchRuleError(`${acc.displayName} is off-boarded.`)
+    if (acc.onHold) throw new LaunchRuleError(`${acc.displayName} is on hold — resume it first, or pick another account.`)
+
+    const at = now()
+    const dueAt = (hour: number, minHours: number) => {
+      const d = new Date(at)
+      d.setHours(hour, 0, 0, 0)
+      const floor = new Date(at.getTime() + minHours * 3_600_000)
+      return (d > floor ? d : floor).toISOString()
+    }
+    const own = pl.creative.kind === 'OWN_DRIVE'
+    const conceptLabel = pl.conceptType === 'SWIPES' ? TRIGGER_CONCEPT_LABEL : CONCEPT_LABELS[pl.conceptType] || 'custom'
+    // Run as the person who queued it: launching is Charles's authority, placing is setup's.
+    const next = reducer(state, {
+      type: 'CREATE_LAUNCH',
+      actorId: pl.createdBy,
+      input: {
+        sourceKind: own ? 'OWN_DRIVE' : 'NEW_BATCH',
+        creativeHandling: own ? 'OWN_BATCH' : 'NEW_CREATIVE',
+        adAccountId: acc.id,
+        destination: { kind: 'NEW_CAMPAIGN', campaignType: 'NEW', productName: pl.productName },
+        conceptType: pl.conceptType,
+        conceptLabel,
+        launchDate: toDateInputValue(at),
+        brief: {
+          hooks: [],
+          angle: pl.creative.kind === 'NEW' ? (pl.creative.angle ?? '') : '',
+          direction: pl.creative.kind === 'NEW' ? (pl.creative.direction ?? '') : '',
+          references: pl.creative.kind === 'NEW' ? pl.creative.references : [],
+          quantity: pl.creative.kind === 'NEW' ? pl.creative.quantity : 0,
+          priority: pl.priority,
+        },
+        ownDriveUrl: pl.creative.kind === 'OWN_DRIVE' ? pl.creative.driveUrl : undefined,
+        setupInstructions: pl.instructions,
+        creativeDueAt: dueAt(12, 3),
+        setupDueAt: dueAt(18, 6),
+      },
+    })
+    const launch = next.launches[next.launches.length - 1]
+    const cm = campaign(next, launch.destinationCampaignId)
+    const out: Db = {
+      ...next,
+      productLaunches: next.productLaunches.map((p) =>
+        p.id === pl.id
+          ? {
+              ...p,
+              status: 'PLACED' as const,
+              placedBy: action.actorId,
+              placedAt: at.toISOString(),
+              adAccountId: acc.id,
+              campaignId: launch.destinationCampaignId,
+              launchId: launch.id,
+            }
+          : p,
+      ),
+    }
+    log(out, action.actorId, 'product_launch', pl.id, 'PRODUCT_PLACED', {
+      productName: pl.productName,
+      accountName: acc.displayName,
+      campaignName: cm?.name,
+      launchId: launch.id,
     })
     return out
   }
@@ -1553,6 +1640,47 @@ function reducer(state: Db, action: Action): Db {
       return db
     }
 
+    case 'PRODUCT_LAUNCH_CREATE': {
+      assertCanWrite(role, 'createLaunch')
+      const name = action.input.productName.trim()
+      if (!name) throw new LaunchRuleError('Type the product.')
+      if (!state.countries.some((c) => c.id === action.input.countryId)) throw new LaunchRuleError('Pick the market.')
+      if (action.input.creative.kind === 'OWN_DRIVE' && !action.input.creative.driveUrl.trim()) {
+        throw new LaunchRuleError('Paste the Drive link, or let Yzah make the creatives.')
+      }
+      if (action.input.creative.kind === 'NEW' && action.input.creative.quantity < 1) {
+        throw new LaunchRuleError('How many creatives should Yzah make?')
+      }
+      const id = nextId('pl')
+      db.productLaunches = [
+        ...state.productLaunches,
+        {
+          ...action.input,
+          id,
+          productName: name,
+          instructions: action.input.instructions?.trim() || undefined,
+          createdBy: action.actorId,
+          createdAt: now().toISOString(),
+          status: 'OPEN',
+        },
+      ]
+      log(db, action.actorId, 'product_launch', id, 'PRODUCT_QUEUED', {
+        productName: name,
+        country: state.countries.find((c) => c.id === action.input.countryId)?.code,
+      })
+      return db
+    }
+
+    case 'PRODUCT_LAUNCH_REMOVE': {
+      assertCanWrite(role, 'createLaunch')
+      const pl = state.productLaunches.find((p) => p.id === action.id)
+      if (!pl) throw new LaunchRuleError('That product is no longer in the queue.')
+      if (pl.status !== 'OPEN') throw new LaunchRuleError('Already placed — cancel its launch from the ad set instead.')
+      db.productLaunches = state.productLaunches.filter((p) => p.id !== pl.id)
+      log(db, action.actorId, 'product_launch', pl.id, 'PRODUCT_QUEUE_REMOVED', { productName: pl.productName })
+      return db
+    }
+
     case 'CREATIVE_SET_BRIEF': {
       assertCanWrite(role, 'editBrief')
       const task = state.creativeTasks.find((t) => t.id === action.taskId)
@@ -2113,6 +2241,10 @@ export function useActions() {
         run({ type: 'NEXT_BATCH', campaignIds, actorId: currentUser.id }),
       cancelLaunch: (adsetId: string) =>
         run({ type: 'LAUNCH_CANCEL', adsetId, actorId: currentUser.id }),
+      queueProduct: (input: ProductLaunchInput) => run({ type: 'PRODUCT_LAUNCH_CREATE', input, actorId: currentUser.id }),
+      placeProduct: (id: string, adAccountId: string) =>
+        run({ type: 'PRODUCT_LAUNCH_PLACE', id, adAccountId, actorId: currentUser.id }),
+      removeQueuedProduct: (id: string) => run({ type: 'PRODUCT_LAUNCH_REMOVE', id, actorId: currentUser.id }),
       setBrief: (
         taskId: string,
         brief: { angle: string; direction: string; hooks: string[]; references: CreativeReference[] },

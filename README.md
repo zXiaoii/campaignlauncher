@@ -292,6 +292,26 @@ Applying the same workbook twice adds nothing: statuses are rewritten with the s
 values, killed CBOs stay killed, and a test batch whose ad set already exists is skipped.
 Everything is matched by account number + campaign name, so nothing depends on ids.
 
+## New products to launch — setup picks the ad account
+
+Charles's plan from 8 Oct 2026: he decides *what* launches and *where* (market); the
+setup team decides *which ad account*. The **New products to launch** container sits at
+the top of the Workspace (filtered to the market on screen) and of Setup Tasks (all
+markets). **＋ New product** (Charles) takes the product, one or more markets, the
+instructions for setup, where the creatives come from — Yzah makes them (quantity,
+priority, optional angle / direction / references) or a Drive folder Charles already has —
+and the framework for the first ad set. One queue entry per market.
+
+Anyone on the setup team opens a card, picks any ad account in that market that is in
+play and not on hold, and presses **Place here**. That runs the normal `CREATE_LAUNCH`
+on Charles's authority into a **new CBO** (`NEW <product> <account number>`), with today's
+date on the ad set, the instructions on the setup task, and either Yzah's creative task
+(setup waits) or a Ready setup task (own Drive). The placement itself is logged to the
+setup person; the entry moves to *Placed this week* with who put it where. Charles can
+remove an entry while it is still waiting. Store: `productLaunches`
+(`PRODUCT_LAUNCH_CREATE` / `_PLACE` / `_REMOVE`, area `productQueue`). Mark and Danny see
+the container read-only.
+
 ## Products Live — the funnels & store seat
 
 A sixth role, **Funnels & store** (`STORE`), for whoever keeps Funnelish and Shopify

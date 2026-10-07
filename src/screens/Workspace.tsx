@@ -56,6 +56,7 @@ import { planNextBatch, useActions, useStore } from '../store'
 import type { AdAccount, Adset, Campaign, CampaignType } from '../types'
 import { ImportDrawer } from './ImportDrawer'
 import type { LaunchIntent } from './LaunchDrawer'
+import { ProductQueue } from './ProductQueue'
 import { ReviewDrawer } from './ReviewDrawer'
 
 type View = 'grid' | 'bento' | 'table'
@@ -259,6 +260,8 @@ export function Workspace({
 
       {importing && <ImportDrawer countryId={country.id} onClose={() => setImporting(false)} />}
       {reviewing && <ReviewDrawer onClose={() => setReviewing(false)} />}
+
+      <ProductQueue countryId={country.id} compact />
 
       {result && (
         <Callout className="border-l-success">

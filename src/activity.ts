@@ -39,6 +39,9 @@ const KIND_OF: Record<string, ActivityKind> = {
   SETUP_INSTRUCTIONS_SET: 'launch',
   CREATIVE_PRIORITY_SET: 'launch',
   CREATIVE_BRIEF_UPDATED: 'launch',
+  PRODUCT_QUEUED: 'launch',
+  PRODUCT_PLACED: 'launch',
+  PRODUCT_QUEUE_REMOVED: 'launch',
   CAMPAIGN_IMPORTED: 'import',
   CAMPAIGNS_IMPORTED: 'import',
   CAMPAIGN_HELD: 'campaign',
@@ -153,6 +156,20 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       text = `Set ${w?.where ?? 'a creative task'} to ${(str(m.priority) ?? 'normal').toLowerCase()} priority`
       break
     }
+    case 'PRODUCT_QUEUED':
+      text = `Queued ${str(m.productName) ?? 'a product'} to launch in ${str(m.country) ?? 'a market'} — setup picks the ad account`
+      break
+    case 'PRODUCT_PLACED': {
+      const w = whereForLaunch(db, str(m.launchId) ?? '')
+      adsetId = w?.adsetId
+      text = `Placed ${str(m.productName) ?? 'a product'} in ${str(m.accountName) ?? 'an ad account'}${
+        str(m.campaignName) ? ` — ${str(m.campaignName)} created` : ''
+      }`
+      break
+    }
+    case 'PRODUCT_QUEUE_REMOVED':
+      text = `Took ${str(m.productName) ?? 'a product'} out of the launch queue`
+      break
     case 'CREATIVE_BRIEF_UPDATED': {
       const w = whereForCreativeTask(db, l.entityId)
       adsetId = w?.adsetId

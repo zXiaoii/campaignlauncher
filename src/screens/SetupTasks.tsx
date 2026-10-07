@@ -47,6 +47,7 @@ import { dueLabel, formatLaunchDate, formatTime, isLate } from '../naming'
 import { campaignExistsInMeta, rowForSetupTask, setupRows, userName } from '../selectors'
 import { useActions, useStore } from '../store'
 import { InstructionsPanel } from './Instructions'
+import { ProductQueue } from './ProductQueue'
 
 /** One line for the table: what the setup person gets as creative, in two words. */
 function creativeSummary(r: ReturnType<typeof setupRows>[number]): string {
@@ -95,6 +96,8 @@ export function SetupTasks() {
             : 'Every setup task. Exact names with one-click copy; completing a task makes the launch live.'
         }
       />
+
+      <ProductQueue countryId={countryId === 'ALL' ? undefined : countryId} />
 
       <Toolbar>
         <Stats

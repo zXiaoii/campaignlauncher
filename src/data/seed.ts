@@ -460,6 +460,7 @@ export function createSeedDb(): Db {
     creativeTasks: [],
     setupTasks: [],
     followups: [],
+    productLaunches: [],
     activityLogs: [],
   }
 }

@@ -25,6 +25,7 @@ export type Area =
   | 'creativeRequest'
   | 'team'
   | 'storeChecks'
+  | 'productQueue'
 
 export type Access = 'full' | 'read' | 'summary' | 'own' | 'setupOnly' | 'none'
 
@@ -191,6 +192,19 @@ export const PERMISSIONS: Record<Area, Record<Role, Access>> = {
     SETUP: 'none',
     SETUP_QA: 'none',
     STORE: 'full',
+  },
+  /**
+   * The "New products to launch" container (8 Oct 2026). Charles puts products in
+   * it; the setup team places each one in whichever ad account they choose, which
+   * creates the CBO and the tasks. Mark and Danny watch.
+   */
+  productQueue: {
+    MEDIA_BUYER: 'full',
+    CEO: 'read',
+    CREATIVE: 'none',
+    SETUP: 'full',
+    SETUP_QA: 'read',
+    STORE: 'none',
   },
 }
 
