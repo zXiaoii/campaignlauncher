@@ -47,6 +47,17 @@ export interface PreparedMigration {
   /** Take every held ad account off hold. */
   resumeAll?: boolean
   /**
+   * CBOs a match must never mark killed even though the book does not list them —
+   * ones Charles says are running but had no spend on the export day. By name,
+   * case- and space-insensitive.
+   */
+  keep?: string[]
+  /**
+   * Ad sets Charles says are gone, by campaign and ad-set name: archived (a match on
+   * its own never archives ad sets, because a one-day export lists what spent).
+   */
+  archiveAdsets?: { campaign: string; adset: string }[]
+  /**
    * Product per campaign name, for names the reader cannot work out on its own
    * ("Fleixivita RELAUNCH OLD WINNERS" → Flexivita). Case- and space-insensitive.
    */
@@ -179,6 +190,11 @@ export const MIGRATIONS: PreparedMigration[] = [
     book: UK_8_OCT,
     killWords: ['Variclex'],
     matchCountryIds: ['c_uk'],
+    // "costcap flexivita is still here retain that" — cost-cap CBOs spend little
+    // and can miss a one-day export.
+    keep: ['COSTCAP Flexivita'],
+    // "remove the … swipes 2 revida" — the 7 Oct ad set that is not in the 8 Oct exports.
+    archiveAdsets: [{ campaign: 'MAIN CBO Revida', adset: '10/04/26 swipes 2' }],
     products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
   },
 ]

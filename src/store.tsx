@@ -594,6 +594,8 @@ export interface MigrationPlan {
   reactivateIds: string[]
   /** CBOs the book brings in that match a kill word: imported, then marked killed. */
   killAfterImport: string[]
+  /** Live ad sets the job archives by name. */
+  archiveAdsetIds: string[]
 }
 
 /** Active CBOs whose name or product carries one of the job's kill words. */
@@ -683,8 +685,18 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   const marketAccounts = new Set(
     afterRetire.adAccounts.filter((a) => matchMarkets.has(a.countryId) && a.status !== 'OFFBOARDED').map((a) => a.id),
   )
+  const keep = new Set((m.keep ?? []).map(squashName))
+  const archiveAdsetIds = (m.archiveAdsets ?? []).flatMap(({ campaign: cName, adset: aName }) =>
+    afterRetire.campaigns
+      .filter((c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && squashName(c.name) === squashName(cName))
+      .flatMap((c) =>
+        afterRetire.adsets
+          .filter((a) => a.campaignId === c.id && (a.status === 'ACTIVE' || a.status === 'STOPPED') && squashName(a.name) === squashName(aName))
+          .map((a) => a.id),
+      ),
+  )
   const notInBook = afterRetire.campaigns.filter(
-    (c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && !inBook.has(c.id),
+    (c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && !inBook.has(c.id) && !keep.has(squashName(c.name)),
   )
   // Clean slate: every active CBO on an account still in play, in every market.
   const inPlay = new Set(afterRetire.adAccounts.filter((a) => a.status !== 'OFFBOARDED').map((a) => a.id))
@@ -701,6 +713,7 @@ export function planMigration(db: Db, id: string): MigrationPlan {
     createAccounts,
     reactivateIds,
     killAfterImport,
+    archiveAdsetIds,
     reason: m.reason,
     retireIds,
     record,
@@ -792,8 +805,12 @@ function reducer(state: Db, action: Action): Db {
     if (plan.resumeIds.length > 0) {
       next = reducer(next, { type: 'ACCOUNTS_SET_HOLD', accountIds: plan.resumeIds, onHold: false, actorId: action.actorId })
     }
+    for (const adsetId of plan.archiveAdsetIds) {
+      next = reducer(next, { type: 'ADSET_ARCHIVE', adsetId, actorId: action.actorId })
+    }
     const out: Db = { ...next }
     log(out, action.actorId, 'migration', action.id, 'MIGRATION_APPLIED', {
+      archivedAdsets: plan.archiveAdsetIds.length,
       killed: killIds.size,
       reactivated: plan.reactivateIds.length,
       cancelled: plan.cancelAdsetIds.length,

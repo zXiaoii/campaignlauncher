@@ -48,8 +48,10 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
     plan.killIds.length === 0 &&
     plan.resumeIds.length === 0 &&
     plan.createAccounts.length === 0 &&
-    plan.reactivateIds.length === 0
+    plan.reactivateIds.length === 0 &&
+    plan.archiveAdsetIds.length === 0
   if (nothing) return null
+  const archiving = plan.archiveAdsetIds.length > 0
   const reactivating = plan.reactivateIds.length > 0
   const killTotal = plan.killIds.length + plan.killAfterImport.length
   const killing = plan.killIds.length > 0 || plan.killAfterImport.length > 0
@@ -135,6 +137,12 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
               anywhere again.{' '}
             </>
           )}
+          {archiving && (
+            <>
+              Archive {plan.archiveAdsetIds.length} ad {plan.archiveAdsetIds.length === 1 ? 'set' : 'sets'} you said {plan.archiveAdsetIds.length === 1 ? 'is' : 'are'} gone
+              (listed under Show details).{' '}
+            </>
+          )}
           {plan.killBlocked.length > 0 && (
             <>
               <strong>{plan.killBlocked.join(', ')}</strong> still {plan.killBlocked.length === 1 ? 'has' : 'have'} a launch in flight and
@@ -162,7 +170,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                   plan.cancelAdsetIds.length ? `${plan.cancelAdsetIds.length} in-flight launches → cancelled. ` : ''
                 }${reactivating ? `${plan.reactivateIds.length} accounts → back in play. ` : ''}${killing ? `${killTotal} CBOs → killed. ` : ''}${
                   resuming ? `${plan.resumeIds.length} accounts → resumed. ` : ''
-                }${
+                }${archiving ? `${plan.archiveAdsetIds.length} ad sets → archived. ` : ''}${
                   importing ? `${plan.importItems.length} CBOs imported (${adsets} ad sets). ` : ''
                 }Nothing that went live is deleted. This runs once.`,
               )
@@ -182,6 +190,7 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
                   reactivating ? `${plan.reactivateIds.length} accounts back in play` : '',
                   killing ? `${killTotal} CBOs marked killed` : '',
                   resuming ? `${plan.resumeIds.length} accounts resumed` : '',
+                  archiving ? `${plan.archiveAdsetIds.length} ad ${plan.archiveAdsetIds.length === 1 ? 'set' : 'sets'} archived` : '',
                   importing ? `${plan.importItems.length} CBOs and ${adsets} ad sets imported` : '',
                   newAccounts ? `${newAccounts} new ad accounts created` : '',
                 ]
@@ -250,6 +259,17 @@ function MigrationBanner({ migration: m }: { migration: PreparedMigration }) {
           {holding && (
             <Block className="max-h-64 overflow-auto">
               {[`PUT ON HOLD (${plan.holdIds.length})`, ...plan.holdIds.map((id) => `  ${adAccount(db, id)?.displayName ?? id}`)].join('\n')}
+            </Block>
+          )}
+          {archiving && (
+            <Block className="max-h-64 overflow-auto">
+              {[
+                `ARCHIVE AD SETS (${plan.archiveAdsetIds.length})`,
+                ...plan.archiveAdsetIds.map((id) => {
+                  const a = db.adsets.find((x) => x.id === id)
+                  return `  ${a?.name ?? id}   · ${db.campaigns.find((c) => c.id === a?.campaignId)?.name ?? ''}`
+                }),
+              ].join('\n')}
             </Block>
           )}
           {(resuming || plan.cancelAdsetIds.length > 0) && (

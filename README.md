@@ -259,7 +259,10 @@ added for it: an off-boarded account the book shows spending is **brought back**
 the import, and kill words are checked again after the import, so a CBO the book brings
 in on a killed product (EsoRepair) is imported and marked killed in the same click. The
 eighth, **UK — match the 8 Oct exports** (`src/data/uk8Oct.ts`, two workbooks, kill word
-Variclex; it replaced the 7 Oct UK job the next day), is the same for the UK; a job can
+Variclex; it replaced the 7 Oct UK job the next day; `keep: ['COSTCAP Flexivita']` — a
+match never kills a kept name, for CBOs that run but had no spend that day;
+`archiveAdsets` names the one ad set Charles said is gone, `10/04/26 swipes 2` in MAIN
+CBO Revida, which the job archives), is the same for the UK; a job can
 carry `products` — product per campaign name — for names the reader cannot work out
 ("Fleixivita RELAUNCH OLD WINNERS" → Flexivita), and "RELAUNCH", "OLD", "WINNERS" are
 no longer taken for part of a product name.
