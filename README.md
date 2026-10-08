@@ -306,11 +306,16 @@ instructions for setup, where the creatives come from — Yzah makes them (quant
 priority, optional angle / direction / references) or a Drive folder Charles already has —
 and the framework for the first ad set. One queue entry per market.
 
-Anyone on the setup team opens a card, picks any ad account in that market that is in
-play and not on hold, and presses **Place here**. That runs the normal `CREATE_LAUNCH`
-on Charles's authority into a **new CBO** (`NEW <product> <account number>`), with today's
-date on the ad set, the instructions on the setup task, and either Yzah's creative task
-(setup waits) or a Ready setup task (own Drive). The placement itself is logged to the
+**Yzah gets her task the moment the product is queued** (Charles, 8 Oct 2026: "Yzah
+immediately have the task"): the creative batch and task are created at queue time with
+no launch yet, and sit in her queue with the product and market filled in and *not placed
+yet* where the account and CBO will be. Anyone on the setup team opens a card, picks any
+ad account in that market that is in play and not on hold, and presses **Place here**.
+That runs the normal `CREATE_LAUNCH` on Charles's authority into a **new CBO**
+(`NEW <product> <account number>`), with today's date on the ad set and the instructions
+on the setup task; Yzah's existing task is linked to the launch, and the setup task is
+Ready at once if she has already submitted (or with own-Drive creatives), otherwise it
+waits for her. The placement itself is logged to the
 setup person; the entry moves to *Placed this week* with who put it where. Charles can
 remove an entry while it is still waiting. Store: `productLaunches`
 (`PRODUCT_LAUNCH_CREATE` / `_PLACE` / `_REMOVE`, area `productQueue`). Mark and Danny see

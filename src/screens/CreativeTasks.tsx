@@ -403,6 +403,13 @@ function CreativeTaskDrawer({ taskId, onClose }: { taskId: string; onClose: () =
         </Section>
       )}
 
+      {!row.launch.id && (
+        <Callout>
+          <strong>Ad account not picked yet.</strong> This product is queued for {row.countryCode}; the setup team chooses the account.
+          Make the creatives meanwhile — the moment they place it, your submission moves setup to Ready.
+        </Callout>
+      )}
+
       <Section title="Where this is going">
         <Block>
           {[

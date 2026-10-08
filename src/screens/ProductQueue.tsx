@@ -158,7 +158,7 @@ function QueuedCard({ item: p, canPlace, canRemove }: { item: ProductLaunch; can
             </>
           ) : (
             <>
-              Yzah makes {(p.creative as { quantity: number }).quantity} creatives first — setup task waits for creative.
+              Yzah already has the task — {(p.creative as { quantity: number }).quantity} creatives. Place it any time; setup starts Ready once she submits.
               {p.creative.kind === 'NEW' && p.creative.angle ? ` Angle: ${p.creative.angle}.` : ''}
             </>
           )}
@@ -190,7 +190,7 @@ function QueuedCard({ item: p, canPlace, canRemove }: { item: ProductLaunch; can
                     title: `${p.productName} → ${picked?.displayName ?? ''}`,
                     body: own
                       ? 'CBO and ad set created; your setup task is Ready now.'
-                      : 'CBO and ad set created; Yzah has the creative task, your setup task is waiting for it.',
+                      : 'CBO and ad set created; your setup task is Ready as soon as Yzah has submitted the creatives.',
                     ms: 9000,
                   })
                 }
@@ -318,7 +318,7 @@ function NewProductDrawer({ defaultCountryId, onClose }: { defaultCountryId?: st
           value={kind}
           onChange={setKind}
           options={[
-            { value: 'NEW', title: 'Yzah makes them', desc: 'A creative task goes to Yzah; the setup task waits for it.' },
+            { value: 'NEW', title: 'Yzah makes them', desc: 'Yzah gets the task right now; the setup task waits for her creatives.' },
             { value: 'OWN_DRIVE', title: 'I have them in Drive', desc: 'Paste the folder; the setup task starts Ready.' },
           ]}
         />

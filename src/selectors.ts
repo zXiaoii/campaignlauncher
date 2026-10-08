@@ -1,7 +1,7 @@
 // Pure read functions over the Db. No React here — these are the queries the
 // real API would expose, and the UI reads nothing it cannot get from this file.
 
-import { MAX_ADSETS_PER_CAMPAIGN, sameDay } from './naming'
+import { CONCEPT_LABELS, formatLaunchDate, MAX_ADSETS_PER_CAMPAIGN, sameDay, TRIGGER_CONCEPT_LABEL } from './naming'
 import type {
   AdAccount,
   Adset,
@@ -226,8 +226,51 @@ export function rowForAdset(db: Db, adsetId: string): LaunchRow | undefined {
   return l ? launchRow(db, l) : undefined
 }
 
+/**
+ * A creative task for a queued product has no launch yet — Yzah has the work before
+ * setup has picked the ad account. It still has to sit in her queue like any other,
+ * so it gets a row with the product and market filled in and placeholders where the
+ * account, CBO and ad set will be. `launch.id` is empty: that is how screens tell.
+ */
+function queuedCreativeRow(db: Db, t: CreativeTask): LaunchRow | undefined {
+  const pl = db.productLaunches.find((p) => p.id === t.productLaunchId)
+  const b = batch(db, t.creativeBatchId)
+  const prod = b ? product(db, b.productId) : undefined
+  if (!pl || !b || !prod) return undefined
+  const country = byId(db.countries, pl.countryId)
+  const placeholder = 'not placed yet — setup picks the ad account'
+  return {
+    launch: { id: '', launchMode: 'NEW_CREATIVE', destinationCampaignId: '', destinationAdsetId: '', createdBy: pl.createdBy, status: 'PLANNED' },
+    adset: {
+      id: '',
+      campaignId: '',
+      // The same name the placement will give it (see PRODUCT_LAUNCH_PLACE), dated when queued.
+      name: `${formatLaunchDate(new Date(pl.createdAt))} ${pl.conceptType === 'SWIPES' ? TRIGGER_CONCEPT_LABEL : CONCEPT_LABELS[pl.conceptType] || 'custom'}`,
+      conceptType: pl.conceptType,
+      conceptLabel: CONCEPT_LABELS[pl.conceptType],
+      creativeBatchId: b.id,
+      status: 'PLANNED',
+    },
+    campaign: { id: '', adAccountId: '', productId: prod.id, name: `NEW ${prod.name} — ${placeholder}`, campaignType: 'NEW', status: 'ACTIVE', createdAt: pl.createdAt },
+    account: { id: '', countryId: pl.countryId, displayName: placeholder, adAccountNumber: '', status: 'ACTIVE' },
+    countryCode: country?.code ?? '',
+    product: prod,
+    batch: b,
+    creativeTask: t,
+  }
+}
+
+/** Creative tasks that belong to queued products — no launch yet. */
+function queuedCreativeRows(db: Db): LaunchRow[] {
+  return db.creativeTasks
+    .filter((t) => !t.launchId && t.productLaunchId)
+    .map((t) => queuedCreativeRow(db, t))
+    .filter((r): r is LaunchRow => Boolean(r))
+}
+
 export function rowForCreativeTask(db: Db, taskId: string): LaunchRow | undefined {
   const t = byId(db.creativeTasks, taskId)
+  if (t && !t.launchId) return queuedCreativeRow(db, t)
   const l = t ? launch(db, t.launchId) : undefined
   return l ? launchRow(db, l) : undefined
 }
@@ -249,8 +292,7 @@ const PRIORITY_ORDER: Record<CreativeTask['priority'], number> = {
 
 /** Yzah's queue order: priority first, then due date. */
 export function creativeRows(db: Db): LaunchRow[] {
-  return allLaunchRows(db)
-    .filter((r) => r.creativeTask)
+  return [...allLaunchRows(db).filter((r) => r.creativeTask), ...queuedCreativeRows(db)]
     .sort((a, b) => {
       const ta = a.creativeTask!
       const tb = b.creativeTask!

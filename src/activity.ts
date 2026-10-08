@@ -157,7 +157,9 @@ export function describeActivity(db: Db, l: ActivityLog): ActivityLine | null {
       break
     }
     case 'PRODUCT_QUEUED':
-      text = `Queued ${str(m.productName) ?? 'a product'} to launch in ${str(m.country) ?? 'a market'} — setup picks the ad account`
+      text = `Queued ${str(m.productName) ?? 'a product'} to launch in ${str(m.country) ?? 'a market'}${
+        m.creativeTask ? ' — Yzah has the creative task' : ''
+      }; setup picks the ad account`
       break
     case 'PRODUCT_PLACED': {
       const w = whereForLaunch(db, str(m.launchId) ?? '')

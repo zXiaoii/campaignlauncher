@@ -134,6 +134,12 @@ export interface CreateLaunchInput {
   ownDriveUrl?: string
   /** Free-text instructions for the setup team, stored on the setup task. */
   setupInstructions?: string
+  /**
+   * A queued product's creative task already exists (Yzah got it when Charles queued
+   * the product). Link it to this launch instead of making a new one; its batch is
+   * the launch's batch, and the setup task is Ready if she has already submitted.
+   */
+  existingCreativeTaskId?: string
   setupDueAt: string
   creativeDueAt: string
 }
@@ -969,6 +975,7 @@ function reducer(state: Db, action: Action): Db {
           priority: pl.priority,
         },
         ownDriveUrl: pl.creative.kind === 'OWN_DRIVE' ? pl.creative.driveUrl : undefined,
+        existingCreativeTaskId: pl.creativeTaskId,
         setupInstructions: pl.instructions,
         creativeDueAt: dueAt(12, 3),
         setupDueAt: dueAt(18, 6),
@@ -1105,7 +1112,15 @@ function reducer(state: Db, action: Action): Db {
       const newBatches = [...state.creativeBatches]
       const prodId = campaign(dbWithCampaign, campaignId)!.productId
 
-      if (input.creativeHandling === 'OWN_BATCH') {
+      const existingTask = input.existingCreativeTaskId
+        ? state.creativeTasks.find((t) => t.id === input.existingCreativeTaskId)
+        : undefined
+      if (input.existingCreativeTaskId && !existingTask) throw new LaunchRuleError('That creative task no longer exists.')
+
+      if (existingTask) {
+        // Queued product: Yzah's batch and task were made when Charles queued it.
+        batchId = existingTask.creativeBatchId
+      } else if (input.creativeHandling === 'OWN_BATCH') {
         // Charles made the creatives himself. The batch is complete on arrival —
         // Drive link included — so setup is Ready at once and Yzah gets nothing.
         const url = input.ownDriveUrl?.trim()
@@ -1208,7 +1223,9 @@ function reducer(state: Db, action: Action): Db {
       ]
 
       // -- tasks (§6.6) ----------------------------------------------------
-      if (creativeNeeded && batchId) {
+      if (existingTask) {
+        db.creativeTasks = state.creativeTasks.map((t) => (t.id === existingTask.id ? { ...t, launchId } : t))
+      } else if (creativeNeeded && batchId) {
         db.creativeTasks = [
           ...state.creativeTasks,
           {
@@ -1229,7 +1246,8 @@ function reducer(state: Db, action: Action): Db {
         {
           id: nextId('st'),
           launchId,
-          status: creativeNeeded ? 'WAITING_FOR_CREATIVE' : 'READY',
+          // A queued product's creatives may already be in: then setup starts Ready.
+          status: existingTask ? (existingTask.status === 'TODO' ? 'WAITING_FOR_CREATIVE' : 'READY') : creativeNeeded ? 'WAITING_FOR_CREATIVE' : 'READY',
           creativeRequired: creativeNeeded,
           dueAt: input.setupDueAt,
           instructions,
@@ -1669,6 +1687,50 @@ function reducer(state: Db, action: Action): Db {
         throw new LaunchRuleError('How many creatives should Yzah make?')
       }
       const id = nextId('pl')
+      const stamp = now().toISOString()
+      // Yzah gets the work the moment it is queued — the ad account can wait, the
+      // creatives cannot. Batch and task exist without a launch until setup places it.
+      let creativeBatchId: string | undefined
+      let creativeTaskId: string | undefined
+      if (action.input.creative.kind === 'NEW') {
+        let prod = findProductByName(state, name)
+        if (!prod) {
+          prod = { id: nextId('p'), name, active: true }
+          db.products = [...state.products, prod]
+        }
+        creativeBatchId = nextId('cb')
+        creativeTaskId = nextId('ct')
+        db.creativeBatches = [
+          ...state.creativeBatches,
+          {
+            id: creativeBatchId,
+            productId: prod.id,
+            type: action.input.conceptType,
+            hooks: [],
+            angle: action.input.creative.angle?.trim() || undefined,
+            direction: action.input.creative.direction?.trim() || undefined,
+            references: action.input.creative.references,
+            createdAt: stamp,
+          },
+        ]
+        const due = new Date(now())
+        due.setHours(12, 0, 0, 0)
+        const floor = new Date(now().getTime() + 3 * 3_600_000)
+        db.creativeTasks = [
+          ...state.creativeTasks,
+          {
+            id: creativeTaskId,
+            launchId: '',
+            productLaunchId: id,
+            assignee: 'u_yzah',
+            creativeBatchId,
+            quantity: action.input.creative.quantity,
+            priority: action.input.priority,
+            status: 'TODO',
+            dueAt: (due > floor ? due : floor).toISOString(),
+          },
+        ]
+      }
       db.productLaunches = [
         ...state.productLaunches,
         {
@@ -1676,14 +1738,17 @@ function reducer(state: Db, action: Action): Db {
           id,
           productName: name,
           instructions: action.input.instructions?.trim() || undefined,
+          creativeBatchId,
+          creativeTaskId,
           createdBy: action.actorId,
-          createdAt: now().toISOString(),
+          createdAt: stamp,
           status: 'OPEN',
         },
       ]
       log(db, action.actorId, 'product_launch', id, 'PRODUCT_QUEUED', {
         productName: name,
         country: state.countries.find((c) => c.id === action.input.countryId)?.code,
+        creativeTask: Boolean(creativeTaskId),
       })
       return db
     }
@@ -1694,6 +1759,10 @@ function reducer(state: Db, action: Action): Db {
       if (!pl) throw new LaunchRuleError('That product is no longer in the queue.')
       if (pl.status !== 'OPEN') throw new LaunchRuleError('Already placed — cancel its launch from the ad set instead.')
       db.productLaunches = state.productLaunches.filter((p) => p.id !== pl.id)
+      // Yzah's task goes with it; her batch stays in the Library if she already submitted.
+      if (pl.creativeTaskId) db.creativeTasks = state.creativeTasks.filter((t) => t.id !== pl.creativeTaskId)
+      const b = batch(state, pl.creativeBatchId)
+      if (b && !b.driveUrl) db.creativeBatches = state.creativeBatches.filter((x) => x.id !== b.id)
       log(db, action.actorId, 'product_launch', pl.id, 'PRODUCT_QUEUE_REMOVED', { productName: pl.productName })
       return db
     }

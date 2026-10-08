@@ -233,7 +233,12 @@ export interface Launch {
 
 export interface CreativeTask {
   id: string
+  /**
+   * Empty while the task belongs to a queued product (see ProductLaunch): Yzah has
+   * the work before anyone has picked the ad account. Set when setup places it.
+   */
   launchId: string
+  productLaunchId?: string
   assignee: string
   creativeBatchId: string
   quantity: number
@@ -314,6 +319,9 @@ export interface ProductLaunch {
     | { kind: 'NEW'; quantity: number; angle?: string; direction?: string; references: CreativeReference[] }
   conceptType: ConceptType
   priority: CreativePriority
+  /** When Yzah makes the creatives: her batch and task, created the moment Charles queues it. */
+  creativeBatchId?: string
+  creativeTaskId?: string
   createdBy: string
   createdAt: string
   status: 'OPEN' | 'PLACED'
