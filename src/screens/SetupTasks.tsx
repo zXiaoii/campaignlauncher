@@ -185,7 +185,23 @@ export function SetupTasks() {
                     )}
                   </Td>
                   <NameTd value={r.adset.name} />
-                  <Td className="whitespace-nowrap text-fg-secondary">{creativeSummary(r)}</Td>
+                  <Td className="whitespace-nowrap text-fg-secondary">
+                    {r.batch?.driveUrl ? (
+                      // The link itself, right in the table — no need to open the task to reach the creatives.
+                      <a
+                        href={r.batch.driveUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-accent border-b border-accent-border hover:border-accent"
+                        title={r.batch.driveUrl}
+                      >
+                        {creativeSummary(r)} · Drive ↗
+                      </a>
+                    ) : (
+                      creativeSummary(r)
+                    )}
+                  </Td>
                   <Td
                     className={cn('max-w-[260px] truncate', t.instructions ? 'text-fg' : 'text-fg-tertiary')}
                     title={t.instructions}

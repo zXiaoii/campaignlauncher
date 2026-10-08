@@ -315,7 +315,10 @@ That runs the normal `CREATE_LAUNCH` on Charles's authority into a **new CBO**
 (`NEW <product> <account number>`), with today's date on the ad set and the instructions
 on the setup task; Yzah's existing task is linked to the launch, and the setup task is
 Ready at once if she has already submitted (or with own-Drive creatives), otherwise it
-waits for her. The placement itself is logged to the
+waits for her. Products queued before this existed get their task the first time Charles
+opens the queue (`PRODUCT_LAUNCH_BACKFILL`, run once by the container itself). Setup sees
+Yzah's Drive link as soon as she submits — on the queue card before placing, and as a
+link in the Creative column of the task table after. The placement itself is logged to the
 setup person; the entry moves to *Placed this week* with who put it where. Charles can
 remove an entry while it is still waiting. Store: `productLaunches`
 (`PRODUCT_LAUNCH_CREATE` / `_PLACE` / `_REMOVE`, area `productQueue`). Mark and Danny see

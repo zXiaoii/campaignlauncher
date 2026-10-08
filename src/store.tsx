@@ -402,6 +402,8 @@ type Action =
    */
   | { type: 'PRODUCT_LAUNCH_PLACE'; id: string; adAccountId: string; actorId: string }
   | { type: 'PRODUCT_LAUNCH_REMOVE'; id: string; actorId: string }
+  /** Give queued products from before 8 Oct 2026 the creative task they now get at queue time. */
+  | { type: 'PRODUCT_LAUNCH_BACKFILL'; actorId: string }
   /** Wholesale replacement, used by "Reset data" after the local DB is reseeded. */
   | { type: 'REPLACE'; db: Db }
 
@@ -730,6 +732,57 @@ export function planMigration(db: Db, id: string): MigrationPlan {
       .filter((a) => a.supplier && held.has(a.supplier) && a.status !== 'OFFBOARDED' && !a.onHold)
       .map((a) => a.id),
   }
+}
+
+/**
+ * Yzah's batch and task for a queued product that she makes the creatives for.
+ * Writes into `db` (the reducer's working copy) and returns the ids; nothing when
+ * Charles supplies the creatives himself.
+ */
+function queueCreativeFor(
+  db: Db,
+  pl: Pick<ProductLaunch, 'id' | 'productName' | 'creative' | 'conceptType' | 'priority'>,
+): { creativeBatchId: string; creativeTaskId: string } | undefined {
+  if (pl.creative.kind !== 'NEW') return undefined
+  let prod = findProductByName(db, pl.productName)
+  if (!prod) {
+    prod = { id: nextId('p'), name: pl.productName.trim(), active: true }
+    db.products = [...db.products, prod]
+  }
+  const creativeBatchId = nextId('cb')
+  const creativeTaskId = nextId('ct')
+  const stamp = now().toISOString()
+  db.creativeBatches = [
+    ...db.creativeBatches,
+    {
+      id: creativeBatchId,
+      productId: prod.id,
+      type: pl.conceptType,
+      hooks: [],
+      angle: pl.creative.angle?.trim() || undefined,
+      direction: pl.creative.direction?.trim() || undefined,
+      references: pl.creative.references,
+      createdAt: stamp,
+    },
+  ]
+  const due = new Date(now())
+  due.setHours(12, 0, 0, 0)
+  const floor = new Date(now().getTime() + 3 * 3_600_000)
+  db.creativeTasks = [
+    ...db.creativeTasks,
+    {
+      id: creativeTaskId,
+      launchId: '',
+      productLaunchId: pl.id,
+      assignee: 'u_yzah',
+      creativeBatchId,
+      quantity: pl.creative.quantity,
+      priority: pl.priority,
+      status: 'TODO',
+      dueAt: (due > floor ? due : floor).toISOString(),
+    },
+  ]
+  return { creativeBatchId, creativeTaskId }
 }
 
 function reducer(state: Db, action: Action): Db {
@@ -1690,47 +1743,7 @@ function reducer(state: Db, action: Action): Db {
       const stamp = now().toISOString()
       // Yzah gets the work the moment it is queued — the ad account can wait, the
       // creatives cannot. Batch and task exist without a launch until setup places it.
-      let creativeBatchId: string | undefined
-      let creativeTaskId: string | undefined
-      if (action.input.creative.kind === 'NEW') {
-        let prod = findProductByName(state, name)
-        if (!prod) {
-          prod = { id: nextId('p'), name, active: true }
-          db.products = [...state.products, prod]
-        }
-        creativeBatchId = nextId('cb')
-        creativeTaskId = nextId('ct')
-        db.creativeBatches = [
-          ...state.creativeBatches,
-          {
-            id: creativeBatchId,
-            productId: prod.id,
-            type: action.input.conceptType,
-            hooks: [],
-            angle: action.input.creative.angle?.trim() || undefined,
-            direction: action.input.creative.direction?.trim() || undefined,
-            references: action.input.creative.references,
-            createdAt: stamp,
-          },
-        ]
-        const due = new Date(now())
-        due.setHours(12, 0, 0, 0)
-        const floor = new Date(now().getTime() + 3 * 3_600_000)
-        db.creativeTasks = [
-          ...state.creativeTasks,
-          {
-            id: creativeTaskId,
-            launchId: '',
-            productLaunchId: id,
-            assignee: 'u_yzah',
-            creativeBatchId,
-            quantity: action.input.creative.quantity,
-            priority: action.input.priority,
-            status: 'TODO',
-            dueAt: (due > floor ? due : floor).toISOString(),
-          },
-        ]
-      }
+      const queued = queueCreativeFor(db, { ...action.input, id, productName: name })
       db.productLaunches = [
         ...state.productLaunches,
         {
@@ -1738,8 +1751,8 @@ function reducer(state: Db, action: Action): Db {
           id,
           productName: name,
           instructions: action.input.instructions?.trim() || undefined,
-          creativeBatchId,
-          creativeTaskId,
+          creativeBatchId: queued?.creativeBatchId,
+          creativeTaskId: queued?.creativeTaskId,
           createdBy: action.actorId,
           createdAt: stamp,
           status: 'OPEN',
@@ -1748,8 +1761,32 @@ function reducer(state: Db, action: Action): Db {
       log(db, action.actorId, 'product_launch', id, 'PRODUCT_QUEUED', {
         productName: name,
         country: state.countries.find((c) => c.id === action.input.countryId)?.code,
-        creativeTask: Boolean(creativeTaskId),
+        creativeTask: Boolean(queued),
       })
+      return db
+    }
+
+    case 'PRODUCT_LAUNCH_BACKFILL': {
+      // Products queued before Yzah got her task at queue time (8 Oct 2026): give
+      // each open one its batch and task now. Runs itself when Charles opens the
+      // queue; nothing to do once every entry has one.
+      assertCanWrite(role, 'createLaunch')
+      const missing = state.productLaunches.filter((p) => p.status === 'OPEN' && p.creative.kind === 'NEW' && !p.creativeTaskId)
+      if (missing.length === 0) throw new LaunchRuleError('Every queued product already has its creative task.')
+      const made = new Map<string, { creativeBatchId: string; creativeTaskId: string }>()
+      for (const p of missing) {
+        const q = queueCreativeFor(db, p)
+        if (q) made.set(p.id, q)
+      }
+      db.productLaunches = state.productLaunches.map((p) => (made.has(p.id) ? { ...p, ...made.get(p.id) } : p))
+      for (const p of missing) {
+        log(db, action.actorId, 'product_launch', p.id, 'PRODUCT_QUEUED', {
+          productName: p.productName,
+          country: state.countries.find((c) => c.id === p.countryId)?.code,
+          creativeTask: true,
+          backfilled: true,
+        })
+      }
       return db
     }
 
@@ -2331,6 +2368,7 @@ export function useActions() {
       placeProduct: (id: string, adAccountId: string) =>
         run({ type: 'PRODUCT_LAUNCH_PLACE', id, adAccountId, actorId: currentUser.id }),
       removeQueuedProduct: (id: string) => run({ type: 'PRODUCT_LAUNCH_REMOVE', id, actorId: currentUser.id }),
+      backfillQueuedCreatives: () => run({ type: 'PRODUCT_LAUNCH_BACKFILL', actorId: currentUser.id }),
       setBrief: (
         taskId: string,
         brief: { angle: string; direction: string; hooks: string[]; references: CreativeReference[] },

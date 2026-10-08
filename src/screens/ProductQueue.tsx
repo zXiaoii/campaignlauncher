@@ -6,7 +6,7 @@
 // the tasks are created right there, as if Charles had launched into that account.
 // Mark and Danny see the container read-only.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { useToast } from '../components/Toaster'
 import {
@@ -48,10 +48,22 @@ function parseReferences(text: string): CreativeReference[] {
 
 export function ProductQueue({ countryId, compact }: { countryId?: string; compact?: boolean }) {
   const { db, currentUser } = useStore()
+  const { backfillQueuedCreatives } = useActions()
   const canAdd = canWrite(currentUser.role, 'createLaunch')
   const canPlace = canWrite(currentUser.role, 'productQueue')
   const [adding, setAdding] = useState(false)
   const [showPlaced, setShowPlaced] = useState(false)
+
+  // Products queued before Yzah got her task at queue time: the first time Charles
+  // opens the queue, they get one. Once, silently — the log says it happened.
+  const needsBackfill = canAdd && db.productLaunches.some((p) => p.status === 'OPEN' && p.creative.kind === 'NEW' && !p.creativeTaskId)
+  const backfilled = useRef(false)
+  useEffect(() => {
+    if (needsBackfill && !backfilled.current) {
+      backfilled.current = true
+      backfillQueuedCreatives()
+    }
+  }, [needsBackfill, backfillQueuedCreatives])
 
   const inScope = db.productLaunches.filter((p) => !countryId || p.countryId === countryId)
   const open = inScope.filter((p) => p.status === 'OPEN').sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
@@ -157,10 +169,7 @@ function QueuedCard({ item: p, canPlace, canRemove }: { item: ProductLaunch; can
               — setup task starts Ready.
             </>
           ) : (
-            <>
-              Yzah already has the task — {(p.creative as { quantity: number }).quantity} creatives. Place it any time; setup starts Ready once she submits.
-              {p.creative.kind === 'NEW' && p.creative.angle ? ` Angle: ${p.creative.angle}.` : ''}
-            </>
+            <QueuedCreativeLine item={p} />
           )}
         </div>
         {p.instructions && <Block className="whitespace-pre-wrap">{p.instructions}</Block>}
@@ -210,6 +219,34 @@ function QueuedCard({ item: p, canPlace, canRemove }: { item: ProductLaunch; can
         )}
       </div>
     </article>
+  )
+}
+
+/** Where Yzah is with a queued product's creatives — and the Drive link as soon as she has submitted. */
+function QueuedCreativeLine({ item: p }: { item: ProductLaunch }) {
+  const { db } = useStore()
+  const task = db.creativeTasks.find((t) => t.id === p.creativeTaskId)
+  const b = db.creativeBatches.find((x) => x.id === p.creativeBatchId)
+  const quantity = p.creative.kind === 'NEW' ? p.creative.quantity : 0
+  const angle = p.creative.kind === 'NEW' && p.creative.angle ? ` Angle: ${p.creative.angle}.` : ''
+  if (b?.driveUrl) {
+    return (
+      <>
+        <Chip tone="success">Creatives in</Chip>{' '}
+        {userName(db, task?.submittedBy ?? 'u_yzah')} submitted {quantity} creatives
+        {task?.submittedAt ? ` ${formatLaunchDate(new Date(task.submittedAt))} ${formatTime(task.submittedAt)}` : ''}:{' '}
+        <a href={b.driveUrl} target="_blank" rel="noreferrer" className="text-accent border-b border-accent-border hover:border-accent">
+          Open Drive
+        </a>
+        {task?.submissionNote ? ` — "${task.submissionNote}"` : ''}. Place it and the setup task starts Ready.
+      </>
+    )
+  }
+  return (
+    <>
+      <Chip tone="warn">Creatives to do</Chip> Yzah has the task — {quantity} creatives. Place it any time; setup starts Ready once she
+      submits.{angle}
+    </>
   )
 }
 
