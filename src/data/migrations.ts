@@ -197,6 +197,23 @@ export const MIGRATIONS: PreparedMigration[] = [
     archiveAdsets: [{ campaign: 'MAIN CBO Revida', adset: '10/04/26 swipes 2' }],
     products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
   },
+  {
+    // Charles, 8 Oct 2026, from the Revida card: "remove the 10/07/26 swipes and
+    // 10/08/26 swipes here". Its own job so it runs even where the UK job already
+    // has: archives the trigger-made 10/07/26 swipes and (if the UK job has not yet)
+    // 10/04/26 swipes 2, leaving 10/04/26 swipes and 10/08/26 swipes3 from the export.
+    id: '2026-10-08-revida-tidy',
+    chip: 'Prepared tidy-up · 8 Oct',
+    title: 'MAIN CBO Revida — archive two ad sets',
+    bookLabel: '',
+    reason: '',
+    banned: [],
+    book: NO_BOOK,
+    archiveAdsets: [
+      { campaign: 'MAIN CBO Revida', adset: '10/07/26 swipes' },
+      { campaign: 'MAIN CBO Revida', adset: '10/04/26 swipes 2' },
+    ],
+  },
 ]
 
 export function findMigration(id: string): PreparedMigration | undefined {

@@ -696,7 +696,15 @@ export function planMigration(db: Db, id: string): MigrationPlan {
   const keep = new Set((m.keep ?? []).map(squashName))
   const archiveAdsetIds = (m.archiveAdsets ?? []).flatMap(({ campaign: cName, adset: aName }) =>
     afterRetire.campaigns
-      .filter((c) => c.status === 'ACTIVE' && marketAccounts.has(c.adAccountId) && squashName(c.name) === squashName(cName))
+      .filter(
+        (c) =>
+          c.status === 'ACTIVE' &&
+          // In the job's markets when it has them; anywhere in play for a tidy-up job.
+          (m.matchCountryIds?.length
+            ? marketAccounts.has(c.adAccountId)
+            : afterRetire.adAccounts.some((a) => a.id === c.adAccountId && a.status !== 'OFFBOARDED')) &&
+          squashName(c.name) === squashName(cName),
+      )
       .flatMap((c) =>
         afterRetire.adsets
           .filter((a) => a.campaignId === c.id && (a.status === 'ACTIVE' || a.status === 'STOPPED') && squashName(a.name) === squashName(aName))

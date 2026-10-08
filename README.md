@@ -262,7 +262,9 @@ eighth, **UK — match the 8 Oct exports** (`src/data/uk8Oct.ts`, two workbooks,
 Variclex; it replaced the 7 Oct UK job the next day; `keep: ['COSTCAP Flexivita']` — a
 match never kills a kept name, for CBOs that run but had no spend that day;
 `archiveAdsets` names the one ad set Charles said is gone, `10/04/26 swipes 2` in MAIN
-CBO Revida, which the job archives), is the same for the UK; a job can
+CBO Revida, which the job archives; a separate tidy-up job, **MAIN CBO Revida — archive
+two ad sets**, also archives the trigger-made `10/07/26 swipes`, and runs on its own so
+it works even where the UK job already ran), is the same for the UK; a job can
 carry `products` — product per campaign name — for names the reader cannot work out
 ("Fleixivita RELAUNCH OLD WINNERS" → Flexivita), and "RELAUNCH", "OLD", "WINNERS" are
 no longer taken for part of a product name.
