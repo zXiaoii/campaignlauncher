@@ -10,7 +10,7 @@ import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { CANADA_7_OCT } from './canada7Oct'
-import { UK_7_OCT } from './uk7Oct'
+import { UK_8_OCT } from './uk8Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -165,15 +165,19 @@ export const MIGRATIONS: PreparedMigration[] = [
     matchCountryIds: ['c_ca'],
   },
   {
-    // Charles, 7 Oct 2026: the UK export after the clean slate. The misspelt
+    // Charles, 8 Oct 2026: two UK exports, "the accurate UK campaigns and adsets …
+    // leave the already good ones untouched, Variclex is killed". Replaces the 7 Oct
+    // UK job (same id would have been applied already where it ran; where it had not,
+    // this one covers everything it had that is still running). The misspelt
     // "Fleixivita" CBO is Flexivita.
-    id: '2026-10-07-uk',
-    chip: 'Prepared update · 7 Oct',
-    title: 'UK — match the 7 Oct export',
-    bookLabel: 'UK from your 7 Oct export',
+    id: '2026-10-08-uk',
+    chip: 'Prepared update · 8 Oct',
+    title: 'UK — match the 8 Oct exports',
+    bookLabel: 'UK from your two 8 Oct exports',
     reason: '',
     banned: [],
-    book: UK_7_OCT,
+    book: UK_8_OCT,
+    killWords: ['Variclex'],
     matchCountryIds: ['c_uk'],
     products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
   },
