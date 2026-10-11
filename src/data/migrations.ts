@@ -162,15 +162,15 @@ export const MIGRATIONS: PreparedMigration[] = [
     matchSuppliers: ACCOUNTS_7_OCT_SUPPLIERS,
   },
   {
-    // Charles, 10 Oct 2026: "edit the whole campaigns and adset for canada into this".
-    // Replaces the 7 Oct Canada job (where that one ran, its CBOs are already here
-    // and this one only adjusts; where it had not, this one has everything still
-    // running). Campaign level — new CBOs get the placeholder ad set until an ad-set
-    // export arrives. EsoRepair is still a killed product.
-    id: '2026-10-10-canada',
+    // Charles, 10 Oct 2026: "edit the whole campaigns and adset for canada into this",
+    // then the ad-set level export of the same day ("do you see now"). A new id, so it
+    // runs where the campaign-level version already did: the real ad sets replace the
+    // placeholders, CBOs that already have theirs keep them, and anything missing
+    // comes in. EsoRepair is still a killed product.
+    id: '2026-10-10-canada-adsets',
     chip: 'Prepared update · 10 Oct',
     title: 'Canada — match the 10 Oct export',
-    bookLabel: 'Canada from your 10 Oct export (campaign level)',
+    bookLabel: 'Canada from your 10 Oct ad-set export',
     reason: '',
     banned: [],
     book: CANADA_10_OCT,

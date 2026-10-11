@@ -254,9 +254,10 @@ accounts are created with market, supplier, panel label and timezone; a GO DGTL 
 the panel no longer lists is retired (GO DGTL only — the ROAS panel paste was partial,
 so RHKA / ADSOL accounts are added, never retired, by it). The seventh, **Canada — match
 the 10 Oct export** (`src/data/canada10Oct.ts`, kill word Esorepair; it replaced the 7
-Oct Canada job, which was the first book after the clean slate), makes Canada match a
-campaign-level export: CBOs the app has keep their ad sets, new ones arrive with the
-placeholder until an ad-set export comes. Two rules were
+Oct Canada job, which was the first book after the clean slate), makes Canada match the
+10 Oct ad-set export. Its first version was campaign level and left placeholders; the
+ad-set version got a new id (`-adsets`) so it runs after it: real ad sets replace the
+placeholders, CBOs that already have theirs keep them. Two rules were
 added for it: an off-boarded account the book shows spending is **brought back** before
 the import, and kill words are checked again after the import, so a CBO the book brings
 in on a killed product (EsoRepair) is imported and marked killed in the same click. The
