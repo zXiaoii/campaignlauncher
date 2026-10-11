@@ -10,7 +10,7 @@ import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { CANADA_10_OCT } from './canada10Oct'
-import { UK_8_OCT } from './uk8Oct'
+import { UK_10_OCT } from './uk10Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -178,24 +178,22 @@ export const MIGRATIONS: PreparedMigration[] = [
     matchCountryIds: ['c_ca'],
   },
   {
-    // Charles, 8 Oct 2026: two UK exports, "the accurate UK campaigns and adsets …
-    // leave the already good ones untouched, Variclex is killed". Replaces the 7 Oct
-    // UK job (same id would have been applied already where it ran; where it had not,
-    // this one covers everything it had that is still running). The misspelt
-    // "Fleixivita" CBO is Flexivita.
-    id: '2026-10-08-uk',
-    chip: 'Prepared update · 8 Oct',
-    title: 'UK — match the 8 Oct exports',
-    bookLabel: 'UK from your two 8 Oct exports',
+    // Charles, 10 Oct 2026: two UK exports, "this is all for the UK". Replaces the 8
+    // Oct UK job (where that one ran its CBOs are here and this one adjusts; where it
+    // had not, this one has everything still running). The second file is campaign
+    // level, so Retiova and Hydroflux arrive with the placeholder until an ad-set
+    // export comes. VaricleX is still a killed product; the misspelt "Fleixivita" CBO
+    // is Flexivita; COSTCAP Flexivita is in the file this time.
+    id: '2026-10-10-uk',
+    chip: 'Prepared update · 10 Oct',
+    title: 'UK — match the 10 Oct exports',
+    bookLabel: 'UK from your two 10 Oct exports',
     reason: '',
     banned: [],
-    book: UK_8_OCT,
+    book: UK_10_OCT,
     killWords: ['Variclex'],
     matchCountryIds: ['c_uk'],
-    // "costcap flexivita is still here retain that" — cost-cap CBOs spend little
-    // and can miss a one-day export.
     keep: ['COSTCAP Flexivita'],
-    // "remove the … swipes 2 revida" — the 7 Oct ad set that is not in the 8 Oct exports.
     archiveAdsets: [{ campaign: 'MAIN CBO Revida', adset: '10/04/26 swipes 2' }],
     products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
   },
