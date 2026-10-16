@@ -261,9 +261,9 @@ placeholders, CBOs that already have theirs keep them. Two rules were
 added for it: an off-boarded account the book shows spending is **brought back** before
 the import, and kill words are checked again after the import, so a CBO the book brings
 in on a killed product (EsoRepair) is imported and marked killed in the same click. The
-eighth, **UK — match the 10 Oct exports** (`src/data/uk10Oct.ts`, two workbooks, one of
-them campaign level, kill word Variclex; it replaced the 8 Oct UK job, which had replaced
-the 7 Oct one; `keep: ['COSTCAP Flexivita']` — a
+eighth, **UK — match the 16 Oct exports** (`src/data/uk16Oct.ts`, two ad-set level
+workbooks, kill word Variclex; it replaced the 10 Oct UK job, which had replaced the 8
+Oct one; the earlier 8 Oct version carried `keep: ['COSTCAP Flexivita']` — a
 match never kills a kept name, for CBOs that run but had no spend that day;
 `archiveAdsets` names the one ad set Charles said is gone, `10/04/26 swipes 2` in MAIN
 CBO Revida, which the job archives; a separate tidy-up job, **MAIN CBO Revida — archive

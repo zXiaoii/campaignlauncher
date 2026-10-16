@@ -10,7 +10,7 @@ import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
 import { CANADA_10_OCT } from './canada10Oct'
-import { UK_10_OCT } from './uk10Oct'
+import { UK_16_OCT } from './uk16Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
 export interface PreparedMigration {
@@ -178,24 +178,23 @@ export const MIGRATIONS: PreparedMigration[] = [
     matchCountryIds: ['c_ca'],
   },
   {
-    // Charles, 10 Oct 2026: two UK exports, "this is all for the UK". Replaces the 8
-    // Oct UK job (where that one ran its CBOs are here and this one adjusts; where it
-    // had not, this one has everything still running). The second file is campaign
-    // level, so Retiova and Hydroflux arrive with the placeholder until an ad-set
-    // export comes. VaricleX is still a killed product; the misspelt "Fleixivita" CBO
-    // is Flexivita; COSTCAP Flexivita is in the file this time.
-    id: '2026-10-10-uk',
-    chip: 'Prepared update · 10 Oct',
-    title: 'UK — match the 10 Oct exports',
-    bookLabel: 'UK from your two 10 Oct exports',
+    // Charles, 16 Oct 2026: "these are my UK campaigns and adsets, can you update".
+    // Replaces the 10 Oct UK job (where that one ran its CBOs are here and this one
+    // adjusts; where it had not, this one has everything still running). Both files
+    // are ad-set level. VaricleX is still a killed product; the misspelt "Fleixivita"
+    // CBO is Flexivita; "CBO Aurica #2 CONCEPT" is Aurica. The cost-cap CBO is now
+    // named "ABO COSTCAP Flexivita" in Meta, so the old "COSTCAP Flexivita" record is
+    // no longer kept — the new name comes in and the old one is marked killed.
+    id: '2026-10-16-uk',
+    chip: 'Prepared update · 16 Oct',
+    title: 'UK — match the 16 Oct exports',
+    bookLabel: 'UK from your 16 Oct exports',
     reason: '',
     banned: [],
-    book: UK_10_OCT,
+    book: UK_16_OCT,
     killWords: ['Variclex'],
     matchCountryIds: ['c_uk'],
-    keep: ['COSTCAP Flexivita'],
-    archiveAdsets: [{ campaign: 'MAIN CBO Revida', adset: '10/04/26 swipes 2' }],
-    products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita' },
+    products: { 'Fleixivita RELAUNCH OLD WINNERS': 'Flexivita', 'CBO Aurica #2 CONCEPT': 'Aurica' },
   },
   {
     // Charles, 8 Oct 2026, from the Revida card: "remove the 10/07/26 swipes and
