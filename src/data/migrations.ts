@@ -9,7 +9,7 @@ import type { MetaExport, PastedAccount } from '../importing'
 import { ALL_STORES_21_SEP } from './allStores21Sep'
 import { ACCOUNTS_7_OCT, ACCOUNTS_7_OCT_SUPPLIERS, type AccountSpec } from './accounts7Oct'
 import { ALL_STORES_22_SEP } from './allStores22Sep'
-import { CANADA_10_OCT } from './canada10Oct'
+import { CANADA_16_OCT } from './canada16Oct'
 import { UK_16_OCT } from './uk16Oct'
 import { BANNED_ACCOUNTS, RESTRICTION_WAVE_ID, RESTRICTION_WAVE_REASON } from './restrictionWave'
 
@@ -162,19 +162,17 @@ export const MIGRATIONS: PreparedMigration[] = [
     matchSuppliers: ACCOUNTS_7_OCT_SUPPLIERS,
   },
   {
-    // Charles, 10 Oct 2026: "edit the whole campaigns and adset for canada into this",
-    // then the ad-set level export of the same day ("do you see now"). A new id, so it
-    // runs where the campaign-level version already did: the real ad sets replace the
-    // placeholders, CBOs that already have theirs keep them, and anything missing
-    // comes in. EsoRepair is still a killed product.
-    id: '2026-10-10-canada-adsets',
-    chip: 'Prepared update · 10 Oct',
-    title: 'Canada — match the 10 Oct export',
-    bookLabel: 'Canada from your 10 Oct ad-set export',
+    // Charles, 16 Oct 2026: "this is canada update this". Replaces the 10 Oct Canada
+    // job (where that one ran its CBOs are here and this one adjusts; where it had
+    // not, this one has everything still running). EsoRepair is running again, on
+    // the ADSOL account, so it is no longer a kill word here.
+    id: '2026-10-16-canada',
+    chip: 'Prepared update · 16 Oct',
+    title: 'Canada — match the 16 Oct export',
+    bookLabel: 'Canada from your 16 Oct export',
     reason: '',
     banned: [],
-    book: CANADA_10_OCT,
-    killWords: ['Esorepair'],
+    book: CANADA_16_OCT,
     matchCountryIds: ['c_ca'],
   },
   {
